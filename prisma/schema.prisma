@@ -1,0 +1,1148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// MULTI-TENANCY - ORGANIZATION MANAGEMENT
+// ============================================
+
+model Organization {
+  id              String    @id @default(cuid())
+  name            String
+  slug            String    @unique // URL-friendly identifier (e.g., "joy-fm")
+  subdomain       String?   @unique // Optional custom subdomain
+  
+  // Business Information
+  email           String
+  phone           String?
+  address         String?
+  city            String?
+  region          String?
+  country         String    @default("Ghana")
+  website         String?
+  logo            String?
+  
+  // Registration & Business Details
+  businessType    BusinessType @default(RADIO_STATION)
+  registrationNumber String?
+  taxId           String?
+  
+  // Subscription & Status
+  subscriptionId  String?   @unique
+  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
+  status          OrganizationStatus @default(TRIAL)
+  
+  // Trial Management
+  trialStartDate  DateTime  @default(now())
+  trialEndDate    DateTime  // Auto-set to 7 days from creation
+  isTrialUsed     Boolean   @default(false)
+  
+  // Feature Limits (based on plan)
+  maxUsers        Int       @default(5)
+  maxClients      Int       @default(100)
+  maxSMSPerMonth  Int       @default(500)
+  maxStorageGB    Int       @default(5)
+  
+  // Owner
+  ownerId         String    @unique
+  owner           User      @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  
+  // Relations
+  users           User[]    @relation("OrganizationUsers")
+  roles           Role[]
+  clients         Client[]
+  programs        Program[]
+  smsCampaigns    SMSCampaign[]
+  mediaFiles      MediaFile[]
+  adCampaigns     AdCampaign[]
+  contracts       Contract[]
+  invoices        Invoice[]
+  communications  Communication[]
+  activityLogs    ActivityLog[]
+  settings        OrganizationSetting[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  suspendedAt     DateTime?
+  deletedAt       DateTime? // Soft delete
+
+  @@index([slug])
+  @@index([status])
+  @@index([ownerId])
+  @@map("organizations")
+}
+
+enum OrganizationStatus {
+  TRIAL           // 7-day trial period
+  ACTIVE          // Paid and active
+  SUSPENDED       // Payment failed or overdue
+  CANCELLED       // Subscription cancelled
+  EXPIRED         // Trial expired without payment
+}
+
+enum BusinessType {
+  RADIO_STATION
+  PODCAST_NETWORK
+  MEDIA_COMPANY
+  OTHER
+}
+
+// ============================================
+// SUBSCRIPTION & BILLING MANAGEMENT
+// ============================================
+
+model Subscription {
+  id              String    @id @default(cuid())
+  organization    Organization?
+  
+  planId          String
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  
+  status          SubscriptionStatus @default(TRIALING)
+  
+  // Billing Period
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  
+  // Cancellation
+  cancelAtPeriodEnd Boolean @default(false)
+  cancelledAt       DateTime?
+  
+  // Payment tracking
+  lastPaymentDate   DateTime?
+  nextPaymentDate   DateTime?
+  
+  // Relations
+  payments          SubscriptionPayment[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([planId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  TRIALING        // 7-day trial
+  ACTIVE          // Paid subscription
+  PAST_DUE        // Payment failed, grace period
+  CANCELLED       // User cancelled
+  EXPIRED         // Trial or subscription ended
+}
+
+model SubscriptionPlan {
+  id              String    @id @default(cuid())
+  name            String    @unique // e.g., "Starter", "Professional", "Enterprise"
+  description     String?   @db.Text
+  
+  // Pricing
+  price           Decimal   @db.Decimal(10, 2) // Monthly price in GHS
+  currency        String    @default("GHS")
+  billingInterval BillingInterval @default(MONTHLY)
+  
+  // Feature Limits
+  maxUsers        Int       @default(5)
+  maxClients      Int       @default(100)
+  maxSMSPerMonth  Int       @default(500)
+  maxStorageGB    Int       @default(5)
+  maxPrograms     Int       @default(50)
+  
+  // Features
+  features        String    @db.Text // JSON array of features
+  
+  // Display
+  isPopular       Boolean   @default(false)
+  sortOrder       Int       @default(0)
+  isActive        Boolean   @default(true)
+  
+  // Relations
+  subscriptions   Subscription[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("subscription_plans")
+}
+
+enum BillingInterval {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model SubscriptionPayment {
+  id              String    @id @default(cuid())
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("GHS")
+  
+  // Payment Details
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethodType
+  provider        PaymentProvider // HUBTEL or STRIPE
+  
+  // Provider References
+  providerPaymentId   String?   @unique // Hubtel transaction ID or Stripe payment intent ID
+  providerCustomerId  String?   // For Stripe customer ID
+  
+  // Hubtel Specific
+  mobileNumber    String?   // For mobile money payments
+  network         MobileMoneyNetwork?
+  
+  // Stripe Specific
+  stripePaymentIntentId String?
+  stripeInvoiceId String?
+  
+  // Metadata
+  description     String?
+  metadata        String?   @db.Text // JSON for additional data
+  
+  // Tracking
+  attemptCount    Int       @default(1)
+  failureReason   String?   @db.Text
+  
+  paidAt          DateTime?
+  failedAt        DateTime?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([providerPaymentId])
+  @@map("subscription_payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethodType {
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+enum PaymentProvider {
+  HUBTEL
+  STRIPE
+}
+
+enum MobileMoneyNetwork {
+  MTN
+  VODAFONE
+  AIRTELTIGO
+}
+
+// ============================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String // Hashed password
+  name          String?
+  phone         String?
+  image         String?
+  status        UserStatus @default(ACTIVE)
+  
+  // Multi-tenant relationship
+  organizationId String
+  organization   Organization @relation("OrganizationUsers", fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Organization ownership (only one user per org)
+  ownedOrganization Organization? @relation("OrganizationOwner")
+  
+  // Role within the organization
+  roleId        String
+  role          Role      @relation(fields: [roleId], references: [id])
+  
+  // Invitation tracking (for team members)
+  invitedById   String?
+  invitedAt     DateTime?
+  acceptedAt    DateTime?
+  
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  programs      Program[] @relation("ProgramHost")
+  mediaFiles    MediaFile[]
+  smsCampaigns  SMSCampaign[]
+  createdClients Client[] @relation("CreatedBy")
+  activityLogs  ActivityLog[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([email, organizationId])
+  @@index([email])
+  @@index([organizationId])
+  @@index([roleId])
+  @@map("users")
+}
+
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_INVITATION
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// ROLE-BASED ACCESS CONTROL (Organization-Scoped)
+// ============================================
+
+model Role {
+  id             String   @id @default(cuid())
+  name           String   // e.g., OWNER, ADMIN, PROGRAM_MANAGER, SALES_MANAGER, HOST, VIEWER
+  displayName    String   // User-friendly name
+  description    String?
+  
+  // Multi-tenant - Roles are scoped to organizations
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  isSystemRole   Boolean  @default(false) // true for default roles (OWNER, ADMIN)
+  permissions    Permission[]
+  users          User[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "clients.create", "programs.edit", "sms.send"
+  resource    String   // e.g., "clients", "programs", "sms"
+  action      String   // e.g., "create", "read", "update", "delete"
+  description String?
+  roles       Role[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+// ============================================
+// CLIENT MANAGEMENT (Organization-Scoped)
+// ============================================
+
+model Client {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  email           String?
+  phone           String?
+  alternatePhone  String?
+  address         String?
+  city            String?
+  region          String?
+  website         String?
+  
+  categoryId      String?
+  category        ClientCategory? @relation(fields: [categoryId], references: [id])
+  
+  taxId           String?   // TIN or VAT number
+  registrationNo  String?   // Business registration number
+  notes           String?   @db.Text
+  status          ClientStatus @default(ACTIVE)
+  
+  // Relations
+  contactPersons  ContactPerson[]
+  contracts       Contract[]
+  adCampaigns     AdCampaign[]
+  invoices        Invoice[]
+  communications  Communication[]
+  
+  // Audit fields
+  createdById     String
+  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([email, organizationId]) // Email unique per organization
+  @@index([organizationId])
+  @@index([phone])
+  @@index([categoryId])
+  @@index([status])
+  @@map("clients")
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  PROSPECT
+  CHURNED
+}
+
+model ClientCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique // e.g., "Advertiser", "Sponsor", "Partner", "Government", "Corporate"
+  description String?
+  color       String?  // For UI display
+  clients     Client[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("client_categories")
+}
+
+model ContactPerson {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  name        String
+  position    String?  // e.g., "Marketing Manager", "CEO"
+  email       String?
+  phone       String?
+  isPrimary   Boolean  @default(false)
+  notes       String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId])
+  @@map("contact_persons")
+}
+
+// ============================================
+// PROGRAM MANAGEMENT (Organization-Scoped)
+// ============================================
+
+model Program {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?   @db.Text
+  genre           String?   // e.g., "News", "Music", "Talk Show", "Sports"
+  language        String?   // e.g., "English", "Twi", "Ga"
+  targetAudience  String?   // e.g., "Youth", "Adults", "General"
+  
+  duration        Int       // Duration in minutes
+  isActive        Boolean   @default(true)
+  
+  // Host/Presenter
+  hostId          String?
+  host            User?     @relation("ProgramHost", fields: [hostId], references: [id])
+  coHosts         String?   // JSON array of co-host names
+  
+  // Media
+  thumbnailUrl    String?
+  promoAudioUrl   String?
+  
+  // Relations
+  schedules       ProgramSchedule[]
+  episodes        ProgramEpisode[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([hostId])
+  @@index([isActive])
+  @@map("programs")
+}
+
+model ProgramSchedule {
+  id          String   @id @default(cuid())
+  programId   String
+  program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime   String   // Format: "HH:MM" (24-hour format)
+  endTime     String   // Format: "HH:MM" (24-hour format)
+  
+  isRecurring Boolean  @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  
+  isActive    Boolean  @default(true)
+  notes       String?  @db.Text
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([programId])
+  @@index([dayOfWeek])
+  @@index([isActive])
+  @@map("program_schedules")
+}
+
+model ProgramEpisode {
+  id              String    @id @default(cuid())
+  programId       String
+  program         Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
+  
+  episodeNumber   Int?
+  title           String
+  description     String?   @db.Text
+  
+  airDate         DateTime
+  duration        Int?      // Duration in minutes
+  
+  audioFileUrl    String?
+  transcript      String?   @db.Text
+  
+  guestNames      String?   // JSON array of guest names
+  topics          String?   // JSON array of topics discussed
+  
+  status          EpisodeStatus @default(SCHEDULED)
+  notes           String?   @db.Text
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([programId])
+  @@index([airDate])
+  @@index([status])
+  @@map("program_episodes")
+}
+
+enum EpisodeStatus {
+  SCHEDULED
+  RECORDED
+  AIRED
+  CANCELLED
+}
+
+// ============================================
+// SMS MANAGEMENT (Organization-Scoped)
+// ============================================
+
+model SMSCampaign {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?   @db.Text
+  
+  // Message content
+  templateId      String?
+  template        SMSTemplate? @relation(fields: [templateId], references: [id])
+  messageContent  String    @db.Text
+  
+  // Targeting
+  recipientType   RecipientType // ALL, CATEGORY, CUSTOM, IMPORTED
+  recipientFilter String?   // JSON filter criteria
+  totalRecipients Int       @default(0)
+  
+  // Scheduling
+  scheduledAt     DateTime?
+  sendImmediately Boolean   @default(false)
+  
+  // Status tracking
+  status          CampaignStatus @default(DRAFT)
+  sentCount       Int       @default(0)
+  deliveredCount  Int       @default(0)
+  failedCount     Int       @default(0)
+  
+  // Cost tracking
+  estimatedCost   Decimal?  @db.Decimal(10, 2)
+  actualCost      Decimal?  @db.Decimal(10, 2)
+  
+  // Relations
+  messages        SMSMessage[]
+  
+  // Audit
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  sentAt          DateTime?
+  completedAt     DateTime?
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([createdById])
+  @@map("sms_campaigns")
+}
+
+enum RecipientType {
+  ALL           // All clients
+  CATEGORY      // By client category
+  CUSTOM        // Custom selection
+  IMPORTED      // CSV import
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  SENT
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model SMSMessage {
+  id              String    @id @default(cuid())
+  campaignId      String?
+  campaign        SMSCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  
+  recipient       String    // Phone number
+  recipientName   String?
+  message         String    @db.Text
+  
+  // Status tracking
+  status          MessageStatus @default(PENDING)
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  
+  // Gateway response
+  gatewayMessageId String?
+  gatewayResponse  String?  @db.Text
+  errorMessage    String?   @db.Text
+  
+  // Cost
+  cost            Decimal?  @db.Decimal(10, 4)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([status])
+  @@index([recipient])
+  @@index([sentAt])
+  @@map("sms_messages")
+}
+
+enum MessageStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  REJECTED
+}
+
+model SMSTemplate {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  content     String   @db.Text
+  category    String?  // e.g., "Promotional", "Notification", "Reminder"
+  variables   String?  // JSON array of available variables like {name}, {date}
+  
+  campaigns   SMSCampaign[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("sms_templates")
+}
+
+model SMSCredit {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship - Each org has its own SMS credit balance
+  organizationId  String    @unique
+  
+  balance         Int       @default(0)
+  totalPurchased  Int       @default(0)
+  totalUsed       Int       @default(0)
+  
+  lastPurchaseDate    DateTime?
+  lastPurchaseAmount  Int?
+  lastPurchaseCost    Decimal?  @db.Decimal(10, 2)
+  
+  updatedAt       DateTime  @updatedAt
+
+  @@map("sms_credits")
+}
+
+// ============================================
+// MEDIA LIBRARY (Organization-Scoped)
+// ============================================
+
+model MediaFile {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  originalName    String
+  description     String?   @db.Text
+  
+  // File details
+  type            MediaType
+  mimeType        String
+  size            Int       // Size in bytes
+  duration        Int?      // Duration in seconds (for audio/video)
+  url             String
+  thumbnailUrl    String?
+  
+  // Categorization
+  category        String?   // e.g., "Jingle", "Ad", "Episode", "Promo"
+  tags            String?   // JSON array of tags
+  
+  // Metadata
+  uploadedById    String
+  uploadedBy      User      @relation(fields: [uploadedById], references: [id])
+  uploadedAt      DateTime  @default(now())
+  
+  // Usage tracking
+  usageCount      Int       @default(0)
+  lastUsedAt      DateTime?
+  
+  // Relations
+  advertisements  Advertisement[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([category])
+  @@index([uploadedById])
+  @@map("media_files")
+}
+
+enum MediaType {
+  AUDIO
+  VIDEO
+  IMAGE
+  DOCUMENT
+}
+
+// ============================================
+// ADVERTISING MANAGEMENT (Organization-Scoped)
+// ============================================
+
+model AdCampaign {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  name            String
+  description     String?   @db.Text
+  
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  
+  startDate       DateTime
+  endDate         DateTime
+  
+  budget          Decimal?  @db.Decimal(10, 2)
+  actualSpent     Decimal?  @db.Decimal(10, 2)
+  
+  status          AdCampaignStatus @default(PENDING)
+  
+  // Relations
+  advertisements  Advertisement[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("ad_campaigns")
+}
+
+enum AdCampaignStatus {
+  PENDING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+model Advertisement {
+  id              String    @id @default(cuid())
+  campaignId      String
+  campaign        AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?   @db.Text
+  duration        Int       // Duration in seconds
+  
+  mediaFileId     String?
+  mediaFile       MediaFile? @relation(fields: [mediaFileId], references: [id])
+  
+  // Scheduling
+  slots           AdSlot[]
+  totalPlays      Int       @default(0)
+  
+  status          AdStatus  @default(ACTIVE)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([campaignId])
+  @@index([status])
+  @@map("advertisements")
+}
+
+enum AdStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+model AdSlot {
+  id              String    @id @default(cuid())
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+  
+  scheduledDate   DateTime
+  scheduledTime   String    // Format: "HH:MM"
+  
+  wasPlayed       Boolean   @default(false)
+  playedAt        DateTime?
+  
+  notes           String?   @db.Text
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([advertisementId])
+  @@index([scheduledDate])
+  @@index([wasPlayed])
+  @@map("ad_slots")
+}
+
+// ============================================
+// CONTRACTS & INVOICING (Organization-Scoped)
+// ============================================
+
+model Contract {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  contractNumber  String
+  
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  
+  title           String
+  description     String?   @db.Text
+  
+  startDate       DateTime
+  endDate         DateTime
+  
+  value           Decimal   @db.Decimal(10, 2)
+  terms           String?   @db.Text
+  
+  status          ContractStatus @default(DRAFT)
+  
+  // File attachments
+  documentUrl     String?
+  signedDocumentUrl String?
+  
+  // Relations
+  invoices        Invoice[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  signedAt        DateTime?
+
+  @@unique([contractNumber, organizationId])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@map("contracts")
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  invoiceNumber   String
+  
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  
+  contractId      String?
+  contract        Contract? @relation(fields: [contractId], references: [id])
+  
+  issueDate       DateTime  @default(now())
+  dueDate         DateTime
+  
+  subtotal        Decimal   @db.Decimal(10, 2)
+  taxAmount       Decimal?  @db.Decimal(10, 2)
+  discount        Decimal?  @db.Decimal(10, 2)
+  totalAmount     Decimal   @db.Decimal(10, 2)
+  
+  status          InvoiceStatus @default(DRAFT)
+  
+  notes           String?   @db.Text
+  
+  // Relations
+  items           InvoiceItem[]
+  payments        Payment[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  paidAt          DateTime?
+
+  @@unique([invoiceNumber, organizationId])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceItem {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  description     String
+  quantity        Int       @default(1)
+  unitPrice       Decimal   @db.Decimal(10, 2)
+  amount          Decimal   @db.Decimal(10, 2)
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id])
+  
+  amount          Decimal   @db.Decimal(10, 2)
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  
+  referenceNumber String?
+  notes           String?   @db.Text
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CHEQUE
+  CARD
+  OTHER
+}
+
+// ============================================
+// COMMUNICATION LOG (Organization-Scoped)
+// ============================================
+
+model Communication {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  type            CommunicationType
+  subject         String?
+  message         String    @db.Text
+  
+  direction       CommunicationDirection // INBOUND or OUTBOUND
+  channel         CommunicationChannel
+  
+  // Metadata
+  attachments     String?   // JSON array of file URLs
+  metadata        String?   @db.Text // JSON for additional data
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("communications")
+}
+
+enum CommunicationType {
+  EMAIL
+  SMS
+  PHONE_CALL
+  MEETING
+  NOTE
+  OTHER
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommunicationChannel {
+  EMAIL
+  SMS
+  PHONE
+  IN_PERSON
+  WHATSAPP
+  SOCIAL_MEDIA
+  OTHER
+}
+
+// ============================================
+// ACTIVITY LOGS & AUDIT (Organization-Scoped)
+// ============================================
+
+model ActivityLog {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  action          String    // e.g., "CREATE", "UPDATE", "DELETE"
+  resource        String    // e.g., "Client", "Program", "SMSCampaign"
+  resourceId      String?
+  
+  description     String
+  metadata        String?   @db.Text // JSON with additional details
+  
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ============================================
+// ORGANIZATION SETTINGS (Organization-Scoped)
+// ============================================
+
+model OrganizationSetting {
+  id              String    @id @default(cuid())
+  
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  key             String
+  value           String    @db.Text
+  description     String?
+  category        String?   // e.g., "general", "sms", "email", "billing", "branding"
+  
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([key, organizationId])
+  @@index([organizationId])
+  @@index([category])
+  @@map("organization_settings")
+}
