@@ -49,8 +49,8 @@ model Organization {
   maxStorageGB    Int       @default(5)
   
   // Owner
-  ownerId         String    @unique
-  owner           User      @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  ownerId         String?   @unique
+  owner           User?     @relation("OrganizationOwner", fields: [ownerId], references: [id])
   
   // Relations
   users           User[]    @relation("OrganizationUsers")
@@ -58,6 +58,7 @@ model Organization {
   clients         Client[]
   programs        Program[]
   smsCampaigns    SMSCampaign[]
+  smsTemplates    SMSTemplate[] @relation("OrganizationSMSTemplates")
   mediaFiles      MediaFile[]
   adCampaigns     AdCampaign[]
   contracts       Contract[]
@@ -695,11 +696,16 @@ enum MessageStatus {
 
 model SMSTemplate {
   id          String   @id @default(cuid())
-  name        String   @unique
+
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation("OrganizationSMSTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
   content     String   @db.Text
   category    String?  // e.g., "Promotional", "Notification", "Reminder"
   variables   String?  // JSON array of available variables like {name}, {date}
-  
+
   campaigns   SMSCampaign[]
   
   createdAt   DateTime @default(now())
