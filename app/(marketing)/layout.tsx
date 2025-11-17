@@ -7,6 +7,8 @@
 import Header from '@/components/layouts/header-marketing'
 import Footer from '@/components/layouts/footer'
 
+export const dynamic = 'force-dynamic'
+
 export default function MarketingLayout({
   children,
 }: {

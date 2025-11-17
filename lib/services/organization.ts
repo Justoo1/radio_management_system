@@ -12,7 +12,8 @@ export async function getOrganization(organizationId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
     include: {
-      members: true,
+      users: true,
+      owner: true,
     },
   })
 
@@ -26,11 +27,10 @@ export async function updateOrganization(
   organizationId: string,
   data: {
     name?: string
-    description?: string
     logo?: string
     website?: string
     country?: string
-    timezone?: string
+    phone?: string
   }
 ) {
   const org = await prisma.organization.update({
@@ -39,7 +39,8 @@ export async function updateOrganization(
       ...data,
     },
     include: {
-      members: true,
+      users: true,
+      owner: true,
     },
   })
 
@@ -47,127 +48,22 @@ export async function updateOrganization(
 }
 
 /**
- * Get organization members
+ * Get organization users/members
  */
-export async function getOrganizationMembers(organizationId: string) {
-  const members = await prisma.organizationMember.findMany({
-    where: { organizationId },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
-
-  return members
-}
-
-/**
- * Add a member to organization (invite)
- */
-export async function addOrganizationMember(
-  organizationId: string,
-  email: string,
-  role: 'OWNER' | 'ADMIN' | 'MEMBER'
-) {
-  // Check if user exists
-  const user = await prisma.user.findUnique({
-    where: { email },
-  })
-
-  if (!user) {
-    throw new Error('User not found. Please invite them to create an account first.')
-  }
-
-  // Check if already a member
-  const existingMember = await prisma.organizationMember.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId: user.id,
-      },
-    },
-  })
-
-  if (existingMember) {
-    throw new Error('User is already a member of this organization')
-  }
-
-  const member = await prisma.organizationMember.create({
-    data: {
-      organizationId,
-      userId: user.id,
-      role,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      },
-    },
-  })
-
-  return member
-}
-
-/**
- * Remove a member from organization
- */
-export async function removeOrganizationMember(
-  organizationId: string,
-  userId: string
-) {
-  // Prevent removing the owner
+export async function getOrganizationUsers(organizationId: string) {
   const org = await prisma.organization.findUnique({
     where: { id: organizationId },
-  })
-
-  if (org?.ownerId === userId) {
-    throw new Error('Cannot remove the organization owner')
-  }
-
-  await prisma.organizationMember.delete({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId,
-      },
-    },
-  })
-
-  return { success: true }
-}
-
-/**
- * Update member role
- */
-export async function updateMemberRole(
-  organizationId: string,
-  userId: string,
-  role: 'OWNER' | 'ADMIN' | 'MEMBER'
-) {
-  const member = await prisma.organizationMember.update({
-    where: {
-      organizationId_userId: {
-        organizationId,
-        userId,
-      },
-    },
-    data: {
-      role,
-    },
     include: {
-      user: {
+      users: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          createdAt: true,
+        },
+      },
+      owner: {
         select: {
           id: true,
           name: true,
@@ -178,7 +74,7 @@ export async function updateMemberRole(
     },
   })
 
-  return member
+  return org?.users || []
 }
 
 /**
@@ -194,16 +90,17 @@ export async function getOrganizationPlan(organizationId: string) {
   }
 
   const plan = {
-    maxClients: (org as any).maxClients || 50,
+    maxClients: (org as any).maxClients || 100,
     maxPrograms: (org as any).maxPrograms || 10,
-    maxSMSCampaigns: (org as any).maxSMSCampaigns || 25,
-    maxSMSTemplates: (org as any).maxSMSTemplates || 20,
+    maxSMSPerMonth: (org as any).maxSMSPerMonth || 500,
+    maxUsers: (org as any).maxUsers || 5,
   }
 
   return {
     organizationId,
     plan,
-    subscription: org.subscription || 'FREE',
+    subscriptionId: org.subscriptionId || null,
+    status: (org as any).status || 'TRIAL',
   }
 }
 
@@ -246,10 +143,12 @@ export async function canPerformAction(
     const count = await prisma.sMSCampaign.count({
       where: { organizationId },
     })
-    if (count >= (org as any).maxSMSCampaigns) {
+    // Assuming maxSMSCampaigns is 25 as default
+    const limit = (org as any).maxSMSCampaigns || 25
+    if (count >= limit) {
       return {
         allowed: false,
-        reason: `SMS campaign limit (${(org as any).maxSMSCampaigns}) reached`,
+        reason: `SMS campaign limit (${limit}) reached`,
       }
     }
   }
@@ -318,7 +217,7 @@ export async function getOrganizationUsage(organizationId: string) {
   ])
 
   const limits = {
-    maxClients: (org as any).maxClients || 50,
+    maxClients: (org as any).maxClients || 100,
     maxPrograms: (org as any).maxPrograms || 10,
     maxSMSCampaigns: (org as any).maxSMSCampaigns || 25,
   }
@@ -340,4 +239,47 @@ export async function getOrganizationUsage(organizationId: string) {
       percentage: (campaignCount / limits.maxSMSCampaigns) * 100,
     },
   }
+}
+
+/**
+ * Get organization owner
+ */
+export async function getOrganizationOwner(organizationId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    include: {
+      owner: true,
+    },
+  })
+
+  return org?.owner || null
+}
+
+/**
+ * Check if user is organization owner
+ */
+export async function isOrganizationOwner(
+  organizationId: string,
+  userId: string
+): Promise<boolean> {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+  })
+
+  return org?.ownerId === userId
+}
+
+/**
+ * Get organization by slug
+ */
+export async function getOrganizationBySlug(slug: string) {
+  const org = await prisma.organization.findUnique({
+    where: { slug },
+    include: {
+      users: true,
+      owner: true,
+    },
+  })
+
+  return org
 }

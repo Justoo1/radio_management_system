@@ -12,16 +12,12 @@ import {
 } from '@/lib/validations/program'
 
 /**
- * Get all programs for an organization with pagination and filtering
+ * Get all programs for an organization with filtering
  */
 export async function getPrograms(
   organizationId: string,
   filters?: ProgramFilterInput
 ) {
-  const page = filters?.page || 1
-  const pageSize = filters?.pageSize || 10
-  const skip = (page - 1) * pageSize
-
   // Build where clause
   const where: any = {
     organizationId,
@@ -46,31 +42,16 @@ export async function getPrograms(
     orderBy.createdAt = filters?.sortOrder || 'desc'
   }
 
-  const [programs, total] = await Promise.all([
-    prisma.program.findMany({
-      where,
-      skip,
-      take: pageSize,
-      orderBy,
-      include: {
-        schedules: true,
-        episodes: true,
-      },
-    }),
-    prisma.program.count({ where }),
-  ])
-
-  return {
-    data: programs,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-      hasNext: page < Math.ceil(total / pageSize),
-      hasPrev: page > 1,
+  const programs = await prisma.program.findMany({
+    where,
+    orderBy,
+    include: {
+      schedules: true,
+      episodes: true,
     },
-  }
+  })
+
+  return programs
 }
 
 /**

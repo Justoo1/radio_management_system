@@ -9,6 +9,8 @@ import { auth } from '@/lib/auth'
 import Sidebar from '@/components/layouts/sidebar'
 import Header from '@/components/layouts/header'
 
+export const dynamic = 'force-dynamic'
+
 export default async function DashboardLayout({
   children,
 }: {

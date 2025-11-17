@@ -56,7 +56,7 @@ export async function getClients(
       orderBy,
       include: {
         category: true,
-        contacts: true,
+        contactPersons: true,
       },
     }),
     prisma.client.count({ where }),
@@ -83,7 +83,7 @@ export async function getClientById(clientId: string, organizationId: string) {
     where: { id: clientId },
     include: {
       category: true,
-      contacts: true,
+      contactPersons: true,
     },
   })
 
@@ -129,7 +129,7 @@ export async function createClient(
     } as any,
     include: {
       category: true,
-      contacts: true,
+      contactPersons: true,
     },
   })
 
@@ -156,7 +156,7 @@ export async function updateClient(
     } as any,
     include: {
       category: true,
-      contacts: true,
+      contactPersons: true,
     },
   })
 
@@ -226,7 +226,7 @@ export async function exportClientsCSV(organizationId: string) {
   ]
 
   // CSV rows
-  const rows = clients.map((client) => [
+  const rows = clients.map((client: any) => [
     client.id,
     client.name,
     client.email || '',

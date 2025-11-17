@@ -4,6 +4,8 @@
  * No sidebar or header - centered, minimal design
  */
 
+export const dynamic = 'force-dynamic'
+
 export default function AuthLayout({
   children,
 }: {

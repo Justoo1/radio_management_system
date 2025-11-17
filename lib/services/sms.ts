@@ -264,7 +264,7 @@ export async function sendSMSCampaign(
     where: { id: campaignId },
     data: {
       status: campaign.sendImmediately ? 'PROCESSING' : 'SCHEDULED',
-      recipientCount,
+      totalRecipients: recipientCount,
       sentAt: campaign.sendImmediately ? new Date() : null,
     },
     include: {

@@ -32,14 +32,7 @@ export function RegisterForm() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationName: data.organizationName,
-          email: data.email,
-          name: data.name,
-          password: data.password,
-          phone: data.phone,
-          country: data.country,
-        }),
+        body: JSON.stringify(data),
       })
 
       const result = await response.json()
