@@ -18,41 +18,78 @@ import {
   Calendar,
   Zap
 } from 'lucide-react'
+import {
+  fetchDashboardStats,
+  fetchDashboardMetrics,
+  fetchDashboardActivity,
+  type DashboardStats,
+  type MetricsData,
+  type ActivityItem
+} from '@/app/actions/dashboard'
+import { formatRelativeTime } from '@/lib/utils/time'
 
-interface DashboardStats {
-  clients: { total: number; active: number }
-  programs: { total: number; active: number }
-  campaigns: { total: number; sent: number }
+interface DashboardPageState {
+  stats: DashboardStats | null
+  metrics: MetricsData | null
+  activities: ActivityItem[]
+  loading: boolean
+  error: string | null
 }
 
 export default function DashboardPage() {
   const { data: session } = useSession()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [state, setState] = useState<DashboardPageState>({
+    stats: null,
+    metrics: null,
+    activities: [],
+    loading: true,
+    error: null
+  })
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const loadDashboardData = async () => {
       try {
-        // TODO: Replace with actual API call to get dashboard stats
-        // const response = await fetch('/api/dashboard/stats')
-        // const data = await response.json()
-        // setStats(data)
+        setState((prev) => ({ ...prev, loading: true, error: null }))
 
-        // Mock data for now
-        setStats({
-          clients: { total: 24, active: 18 },
-          programs: { total: 8, active: 6 },
-          campaigns: { total: 42, sent: 35 },
+        // Fetch all data in parallel
+        const [statsResult, metricsResult, activitiesResult] = await Promise.all([
+          fetchDashboardStats(),
+          fetchDashboardMetrics(),
+          fetchDashboardActivity(3, 0)
+        ])
+
+        setState({
+          stats: statsResult,
+          metrics: metricsResult.data,
+          activities: activitiesResult.data,
+          loading: false,
+          error: null
         })
       } catch (error) {
-        console.error('Failed to fetch stats:', error)
-      } finally {
-        setLoading(false)
+        console.error('Failed to load dashboard data:', error)
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error.message : 'Failed to load dashboard data'
+        }))
       }
     }
 
-    fetchStats()
+    loadDashboardData()
   }, [])
+
+  // Helper function to get activity color gradient
+  const getActivityGradient = (color: string): string => {
+    const gradients: Record<string, string> = {
+      blue: 'from-blue-400 to-blue-600 shadow-blue-500/50',
+      purple: 'from-purple-400 to-pink-600 shadow-purple-500/50',
+      red: 'from-red-400 to-red-600 shadow-red-500/50',
+      emerald: 'from-emerald-400 to-cyan-600 shadow-emerald-500/50',
+      orange: 'from-orange-400 to-orange-600 shadow-orange-500/50',
+      slate: 'from-slate-400 to-slate-600 shadow-slate-500/50'
+    }
+    return gradients[color] || gradients.slate
+  }
 
   return (
     <div className="min-h-screen ">
@@ -91,19 +128,19 @@ export default function DashboardPage() {
                 <div className="bg-gradient-to-br from-blue-500/30 to-blue-600/30 p-3 rounded-xl border border-blue-400/30 backdrop-blur">
                   <Users className="w-6 h-6 text-blue-300" />
                 </div>
-                {stats && stats.clients.active > 0 && (
+                {state.stats && state.stats.clients.active > 0 && (
                   <div className="flex items-center gap-1 text-emerald-400 text-sm font-semibold">
                     <ArrowUpRight className="w-4 h-4" />
-                    75%
+                    {state.metrics?.clients.percentage}%
                   </div>
                 )}
               </div>
               <p className="text-slate-400 text-sm font-medium mb-1">Total Clients</p>
               <p className="text-4xl font-bold text-white mb-2">
-                {loading ? '-' : stats?.clients.total}
+                {state.loading ? '-' : state.stats?.clients.total}
               </p>
               <p className="text-slate-500 text-xs">
-                <span className="text-emerald-400 font-semibold">{stats?.clients.active}</span> active clients
+                <span className="text-emerald-400 font-semibold">{state.stats?.clients.active}</span> active clients
               </p>
             </div>
           </div>
@@ -116,19 +153,19 @@ export default function DashboardPage() {
                 <div className="bg-gradient-to-br from-purple-500/30 to-pink-600/30 p-3 rounded-xl border border-purple-400/30 backdrop-blur">
                   <Radio className="w-6 h-6 text-purple-300" />
                 </div>
-                {stats && stats.programs.active > 0 && (
+                {state.stats && state.stats.programs.active > 0 && (
                   <div className="flex items-center gap-1 text-emerald-400 text-sm font-semibold">
                     <ArrowUpRight className="w-4 h-4" />
-                    100%
+                    {state.metrics?.programs.percentage}%
                   </div>
                 )}
               </div>
               <p className="text-slate-400 text-sm font-medium mb-1">Active Programs</p>
               <p className="text-4xl font-bold text-white mb-2">
-                {loading ? '-' : stats?.programs.active}
+                {state.loading ? '-' : state.stats?.programs.active}
               </p>
               <p className="text-slate-500 text-xs">
-                <span className="text-slate-300">{stats?.programs.total}</span> total programs
+                <span className="text-slate-300">{state.stats?.programs.total}</span> total programs
               </p>
             </div>
           </div>
@@ -141,19 +178,19 @@ export default function DashboardPage() {
                 <div className="bg-gradient-to-br from-emerald-500/30 to-cyan-600/30 p-3 rounded-xl border border-emerald-400/30 backdrop-blur">
                   <MessageSquare className="w-6 h-6 text-emerald-300" />
                 </div>
-                {stats && stats.campaigns.sent > 0 && (
+                {state.stats && state.stats.campaigns.sent > 0 && (
                   <div className="flex items-center gap-1 text-emerald-400 text-sm font-semibold">
                     <ArrowUpRight className="w-4 h-4" />
-                    83%
+                    {state.metrics?.campaigns.percentage}%
                   </div>
                 )}
               </div>
               <p className="text-slate-400 text-sm font-medium mb-1">SMS Campaigns</p>
               <p className="text-4xl font-bold text-white mb-2">
-                {loading ? '-' : stats?.campaigns.total}
+                {state.loading ? '-' : state.stats?.campaigns.total}
               </p>
               <p className="text-slate-500 text-xs">
-                <span className="text-emerald-400 font-semibold">{stats?.campaigns.sent}</span> sent this month
+                <span className="text-emerald-400 font-semibold">{state.stats?.campaigns.sent}</span> sent this month
               </p>
             </div>
           </div>
@@ -166,15 +203,21 @@ export default function DashboardPage() {
                 <div className="bg-gradient-to-br from-orange-500/30 to-red-600/30 p-3 rounded-xl border border-orange-400/30 backdrop-blur">
                   <TrendingUp className="w-6 h-6 text-orange-300" />
                 </div>
-                <div className="flex items-center gap-1 text-emerald-400 text-sm font-semibold">
-                  <ArrowUpRight className="w-4 h-4" />
-                  24%
-                </div>
+                {state.metrics && (
+                  <div className={`flex items-center gap-1 text-sm font-semibold ${state.metrics.growthRate.trend > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <ArrowUpRight className="w-4 h-4" />
+                    {state.metrics.growthRate.trend}%
+                  </div>
+                )}
               </div>
               <p className="text-slate-400 text-sm font-medium mb-1">Growth Rate</p>
-              <p className="text-4xl font-bold text-white mb-2">12%</p>
+              <p className="text-4xl font-bold text-white mb-2">
+                {state.loading ? '-' : `${state.metrics?.growthRate.value || 0}%`}
+              </p>
               <p className="text-slate-500 text-xs">
-                <span className="text-emerald-400 font-semibold">↑ 24%</span> from last month
+                <span className={state.metrics && state.metrics.growthRate.value > 0 ? 'text-emerald-400' : 'text-red-400'}>
+                  {state.metrics?.growthRate.description}
+                </span>
               </p>
             </div>
           </div>
@@ -221,32 +264,30 @@ export default function DashboardPage() {
                 <Activity className="w-5 h-5 text-cyan-400" />
                 Recent Activity
               </h2>
-              <div className="space-y-4">
-                <div className="flex items-start gap-4 pb-4 border-b border-white/10 last:border-b-0">
-                  <div className="w-2 h-2 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mt-2 flex-shrink-0 shadow-lg shadow-blue-500/50" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">New client added</p>
-                    <p className="text-xs text-slate-400">Accra Media Agency joined your platform</p>
-                    <p className="text-xs text-slate-500 mt-1">2 hours ago</p>
-                  </div>
+              {state.loading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-16 bg-white/5 rounded-lg animate-pulse" />
+                  ))}
                 </div>
-                <div className="flex items-start gap-4 pb-4 border-b border-white/10 last:border-b-0">
-                  <div className="w-2 h-2 bg-gradient-to-br from-purple-400 to-pink-600 rounded-full mt-2 flex-shrink-0 shadow-lg shadow-purple-500/50" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">Program scheduled</p>
-                    <p className="text-xs text-slate-400">Morning Drive Time scheduled for Mon-Fri</p>
-                    <p className="text-xs text-slate-500 mt-1">5 hours ago</p>
-                  </div>
+              ) : state.activities.length > 0 ? (
+                <div className="space-y-4">
+                  {state.activities.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-4 pb-4 border-b border-white/10 last:border-b-0">
+                      <div className={`w-2 h-2 bg-gradient-to-br rounded-full mt-2 flex-shrink-0 shadow-lg ${getActivityGradient(activity.color)}`} />
+                      <div>
+                        <p className="text-sm font-semibold text-white">{activity.title}</p>
+                        <p className="text-xs text-slate-400">{activity.description}</p>
+                        <p className="text-xs text-slate-500 mt-1">{formatRelativeTime(activity.timestamp)}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-start gap-4 pb-4 border-b border-white/10 last:border-b-0">
-                  <div className="w-2 h-2 bg-gradient-to-br from-emerald-400 to-cyan-600 rounded-full mt-2 flex-shrink-0 shadow-lg shadow-emerald-500/50" />
-                  <div>
-                    <p className="text-sm font-semibold text-white">SMS campaign sent</p>
-                    <p className="text-xs text-slate-400">Weekend promo delivered to 450 contacts</p>
-                    <p className="text-xs text-slate-500 mt-1">1 day ago</p>
-                  </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-slate-400">No activities yet</p>
                 </div>
-              </div>
+              )}
               <Link
                 href="/dashboard/activity"
                 className="block mt-6 text-center px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 rounded-xl text-sm text-cyan-400 hover:text-cyan-300 font-semibold transition-all duration-300"
@@ -273,7 +314,7 @@ export default function DashboardPage() {
                 <Calendar className="w-8 h-8 text-blue-400 flex-shrink-0 opacity-50" />
               </div>
               <Link
-                href="/dashboard/settings"
+                href="/settings"
                 className="inline-block mt-4 text-sm text-blue-300 hover:text-blue-200 font-semibold transition-colors"
               >
                 Go to Settings →

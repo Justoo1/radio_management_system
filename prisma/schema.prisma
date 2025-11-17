@@ -65,6 +65,7 @@ model Organization {
   invoices        Invoice[]
   communications  Communication[]
   activityLogs    ActivityLog[]
+  metrics         Metric[] @relation("OrganizationMetrics")
   settings        OrganizationSetting[]
   
   createdAt       DateTime  @default(now())
@@ -1130,21 +1131,60 @@ model ActivityLog {
 }
 
 // ============================================
+// METRICS & ANALYTICS (Organization-Scoped)
+// ============================================
+
+model Metric {
+  id              String    @id @default(cuid())
+
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation("OrganizationMetrics", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  metricType      MetricType  // e.g., "CLIENTS_TOTAL", "PROGRAMS_ACTIVE", "SMS_SENT"
+  metricName      String      // Human-readable name
+  value           Decimal     @db.Decimal(10, 2)
+
+  // Date tracking for historical data
+  recordedDate    DateTime    @default(now())
+
+  metadata        String?     @db.Text // JSON for additional data
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@index([metricType])
+  @@index([recordedDate])
+  @@map("metrics")
+}
+
+enum MetricType {
+  CLIENTS_TOTAL
+  CLIENTS_ACTIVE
+  PROGRAMS_TOTAL
+  PROGRAMS_ACTIVE
+  SMS_CAMPAIGNS_SENT
+  SMS_CAMPAIGNS_TOTAL
+  GROWTH_RATE
+}
+
+// ============================================
 // ORGANIZATION SETTINGS (Organization-Scoped)
 // ============================================
 
 model OrganizationSetting {
   id              String    @id @default(cuid())
-  
+
   // Multi-tenant relationship
   organizationId  String
   organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
+
   key             String
   value           String    @db.Text
   description     String?
   category        String?   // e.g., "general", "sms", "email", "billing", "branding"
-  
+
   updatedAt       DateTime  @updatedAt
 
   @@unique([key, organizationId])

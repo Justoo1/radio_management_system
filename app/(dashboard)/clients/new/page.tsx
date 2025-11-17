@@ -80,15 +80,17 @@ export default function NewClientPage() {
     setSaving(true)
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/clients', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData),
-      // })
+      const response = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
 
-      // Mock save
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to create client')
+      }
+
       setSaved(true)
 
       // Reset form
@@ -104,11 +106,11 @@ export default function NewClientPage() {
       // Hide success message after 3 seconds and redirect
       setTimeout(() => {
         setSaved(false)
-        window.location.href = '/clients'
+        window.location.href = '/dashboard/clients'
       }, 3000)
     } catch (error) {
       console.error('Failed to create client:', error)
-      setErrors({ submit: 'Failed to create client. Please try again.' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to create client. Please try again.' })
     } finally {
       setSaving(false)
     }
@@ -125,7 +127,7 @@ export default function NewClientPage() {
       <div className="relative z-10 p-8">
         {/* Header */}
         <div className="mb-8">
-          <Link href="/clients" className="flex items-center gap-2 text-slate-400 hover:text-slate-300 mb-4 transition-colors">
+          <Link href="/dashboard/clients" className="flex items-center gap-2 text-slate-400 hover:text-slate-300 mb-4 transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Clients
           </Link>

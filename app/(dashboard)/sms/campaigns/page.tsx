@@ -28,50 +28,22 @@ export default function SMSCampaignsPage() {
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/sms/campaigns')
-        // const data = await response.json()
-        // setCampaigns(data)
+        const response = await fetch('/api/sms/campaigns?pageSize=100')
+        const data = await response.json()
 
-        // Mock data for now
-        setCampaigns([
-          {
-            id: '1',
-            name: 'Weekend Promo 2024',
-            description: 'Special weekend promotion campaign',
-            status: 'SENT',
-            messageContent: 'Join us this weekend for exclusive deals! Reply STOP to opt out.',
-            totalRecipients: 450,
-            createdAt: '2024-02-01',
-          },
-          {
-            id: '2',
-            name: 'New Program Launch',
-            description: 'Announcement for new morning show',
-            status: 'SCHEDULED',
-            messageContent: 'Excited to announce our new morning show starting Monday!',
-            totalRecipients: 320,
-            createdAt: '2024-02-05',
-          },
-          {
-            id: '3',
-            name: 'Monthly Newsletter',
-            description: 'Regular monthly updates',
-            status: 'DRAFT',
-            messageContent: 'Check out this month\'s highlights from your favorite station.',
-            totalRecipients: 0,
-            createdAt: '2024-02-10',
-          },
-          {
-            id: '4',
-            name: 'Event Reminder',
-            description: 'Reminder for special event',
-            status: 'FAILED',
-            messageContent: 'Reminder: Live concert this Friday at 8 PM!',
-            totalRecipients: 200,
-            createdAt: '2024-02-08',
-          },
-        ])
+        if (data.data) {
+          setCampaigns(
+            data.data.map((campaign: any) => ({
+              id: campaign.id,
+              name: campaign.name,
+              description: campaign.description || campaign.name,
+              status: campaign.status,
+              messageContent: campaign.message || '',
+              totalRecipients: campaign.recipientCount || 0,
+              createdAt: new Date(campaign.createdAt).toLocaleDateString(),
+            }))
+          )
+        }
       } catch (error) {
         console.error('Failed to fetch campaigns:', error)
       } finally {

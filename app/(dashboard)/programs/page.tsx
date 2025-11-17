@@ -28,54 +28,23 @@ export default function ProgramsPage() {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/programs')
-        // const data = await response.json()
-        // setPrograms(data)
+        const response = await fetch('/api/programs?pageSize=100')
+        const data = await response.json()
 
-        // Mock data for now
-        setPrograms([
-          {
-            id: '1',
-            name: 'Morning Drive Time',
-            description: 'High-energy morning show with news and entertainment',
-            duration: 180,
-            genre: 'Talk/News',
-            host: 'John Mensah',
-            isActive: true,
-            createdAt: '2024-01-10',
-          },
-          {
-            id: '2',
-            name: 'Afternoon Vibes',
-            description: 'Relaxing music and conversations for the afternoon',
-            duration: 240,
-            genre: 'Music',
-            host: 'Sarah Osei',
-            isActive: true,
-            createdAt: '2024-01-15',
-          },
-          {
-            id: '3',
-            name: 'Evening News Hour',
-            description: 'In-depth news coverage and analysis',
-            duration: 60,
-            genre: 'News',
-            host: 'Robert Boafo',
-            isActive: true,
-            createdAt: '2024-01-20',
-          },
-          {
-            id: '4',
-            name: 'Late Night Sessions',
-            description: 'Music and entertainment for late night listeners',
-            duration: 120,
-            genre: 'Music/Entertainment',
-            host: 'DJ Alex',
-            isActive: false,
-            createdAt: '2024-02-01',
-          },
-        ])
+        if (data.data) {
+          setPrograms(
+            data.data.map((program: any) => ({
+              id: program.id,
+              name: program.name,
+              description: program.description,
+              duration: program.duration || 60,
+              genre: program.genre || 'General',
+              host: program.host || 'Unknown',
+              isActive: program.isActive,
+              createdAt: new Date(program.createdAt).toLocaleDateString(),
+            }))
+          )
+        }
       } catch (error) {
         console.error('Failed to fetch programs:', error)
       } finally {

@@ -28,41 +28,22 @@ export default function ClientsPage() {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/clients')
-        // const data = await response.json()
-        // setClients(data)
+        const response = await fetch('/api/clients?pageSize=100')
+        const data = await response.json()
 
-        // Mock data for now
-        setClients([
-          {
-            id: '1',
-            name: 'Accra Media Agency',
-            email: 'info@accramedia.com',
-            phone: '+233201234567',
-            city: 'Accra',
-            status: 'ACTIVE',
-            createdAt: '2024-01-15',
-          },
-          {
-            id: '2',
-            name: 'Kumasi Broadcasting',
-            email: 'contact@kumasi.fm',
-            phone: '+233267890123',
-            city: 'Kumasi',
-            status: 'ACTIVE',
-            createdAt: '2024-01-20',
-          },
-          {
-            id: '3',
-            name: 'Takoradi Ads Co',
-            email: 'sales@takoradiads.com',
-            phone: '+233501234567',
-            city: 'Takoradi',
-            status: 'PROSPECT',
-            createdAt: '2024-02-01',
-          },
-        ])
+        if (data.data) {
+          setClients(
+            data.data.map((client: any) => ({
+              id: client.id,
+              name: client.name,
+              email: client.email,
+              phone: client.phone || 'N/A',
+              city: client.city || 'N/A',
+              status: client.status,
+              createdAt: new Date(client.createdAt).toLocaleDateString(),
+            }))
+          )
+        }
       } catch (error) {
         console.error('Failed to fetch clients:', error)
       } finally {
