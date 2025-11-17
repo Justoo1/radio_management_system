@@ -24,7 +24,7 @@ const menuItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/programs', label: 'Programs', icon: Radio },
-  { href: '/sms', label: 'SMS Campaigns', icon: MessageSquare },
+  { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare },
   { href: '/media', label: 'Media Library', icon: Image },
   { href: '/advertising', label: 'Advertising', icon: Megaphone },
   { href: '/contracts', label: 'Contracts', icon: FileText },

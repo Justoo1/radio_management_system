@@ -19,7 +19,7 @@ export default function Header() {
   }
 
   return (
-    <div className="flex items-center justify-between px-6 py-4">
+    <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-900 text-gray-50 ">
       {/* Left side */}
       <div className="flex items-center gap-4">
         <button
@@ -41,10 +41,10 @@ export default function Header() {
         {/* User Menu */}
         <div className="flex items-center gap-3">
           <div>
-            <p className="text-sm font-medium text-slate-900">
+            <p className="text-sm font-medium text-gray-50">
               {session?.user?.name || 'User'}
             </p>
-            <p className="text-xs text-slate-600">
+            <p className="text-xs text-gray-50">
               {session?.user?.email || 'user@example.com'}
             </p>
           </div>

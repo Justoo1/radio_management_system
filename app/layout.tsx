@@ -9,6 +9,7 @@ import './globals.css'
 import { SessionProvider } from '@/components/providers/session-provider'
 import { ToastProvider } from '@/components/providers/toast-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { cn } from '@/lib/utils'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -46,7 +47,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={cn(inter.className, 'bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900')}>
         <SessionProvider>
           <ThemeProvider
             attribute="class"

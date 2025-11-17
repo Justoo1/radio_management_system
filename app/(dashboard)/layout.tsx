@@ -23,7 +23,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-slate-50">
+    <div className="flex h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900">
       {/* Sidebar */}
       <aside className="hidden lg:flex w-64 bg-slate-900 text-white flex-col">
         <Sidebar />
