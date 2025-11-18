@@ -5,22 +5,8 @@ import { Button } from '@/components/ui/button'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { ArrowUpRight, DollarSign, TrendingUp, Clock, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
-
-interface FinancialSummary {
-  period: { startDate: string; endDate: string }
-  revenue: { invoices: number; total: number }
-  expenses: { total: number }
-  profit: { gross: number; net: number }
-  paymentStatus: { paid: number; pending: number; overdue: number }
-  metrics: {
-    revenueGrowth: number
-    collectionRate: number
-    profitMargin: number
-    invoiceCount: number
-    averageInvoiceValue: number
-    daysSalesOutstanding: number
-  }
-}
+import { useFinancialStore } from '@/app/stores/financialStore'
+import { getFinancialSummary, getPLReport } from '@/app/actions/financial-reports'
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
 
@@ -46,23 +32,27 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 }
 
 export default function FinancialReportsPage() {
-  const [summary, setSummary] = useState<FinancialSummary | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { summary, summaryLoading, setSummary, setSummaryLoading } = useFinancialStore()
   const [dateRange, setDateRange] = useState('thisYear')
   const [chartData, setChartData] = useState<Array<{
-    month: string
+    date: string
     revenue: number
     expenses: number
     profit: number
   }> | null>(null)
 
   useEffect(() => {
-    fetchFinancialSummary()
+    fetchFinancialData()
   }, [dateRange])
 
-  const fetchFinancialSummary = async () => {
-    setLoading(true)
+  const fetchFinancialData = async () => {
+    setSummaryLoading(true)
     try {
+      // Fetch financial summary from server action
+      const summaryData = await getFinancialSummary()
+      setSummary(summaryData)
+
+      // Fetch P&L data for chart
       const now = new Date()
       let startDate = new Date()
 
@@ -70,42 +60,34 @@ export default function FinancialReportsPage() {
         startDate = new Date(now.getFullYear(), 0, 1)
       } else if (dateRange === 'lastMonth') {
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        now.setMonth(now.getMonth())
       } else if (dateRange === 'lastQuarter') {
         const quarter = Math.floor(now.getMonth() / 3)
         startDate = new Date(now.getFullYear(), quarter * 3 - 3, 1)
       }
 
-      const response = await fetch(
-        `/api/reports/financial/summary?startDate=${startDate.toISOString().split('T')[0]}&endDate=${now.toISOString().split('T')[0]}`
+      const plData = await getPLReport(
+        startDate.toISOString().split('T')[0],
+        now.toISOString().split('T')[0],
+        'month'
       )
-      const data = await response.json()
-      setSummary(data)
 
-      // Generate mock chart data for visualization
-      const mockChartData = [
-        { month: 'Jan', revenue: 45000, expenses: 30000, profit: 15000 },
-        { month: 'Feb', revenue: 52000, expenses: 31000, profit: 21000 },
-        { month: 'Mar', revenue: 48000, expenses: 29000, profit: 19000 },
-        { month: 'Apr', revenue: 61000, expenses: 32000, profit: 29000 },
-        { month: 'May', revenue: 55000, expenses: 31000, profit: 24000 },
-        { month: 'Jun', revenue: 67000, expenses: 33000, profit: 34000 },
-        { month: 'Jul', revenue: 72000, expenses: 35000, profit: 37000 },
-        { month: 'Aug', revenue: 78000, expenses: 36000, profit: 42000 },
-        { month: 'Sep', revenue: 85000, expenses: 38000, profit: 47000 },
-        { month: 'Oct', revenue: 92000, expenses: 40000, profit: 52000 },
-        { month: 'Nov', revenue: 88000, expenses: 39000, profit: 49000 },
-        { month: 'Dec', revenue: 95000, expenses: 41000, profit: 54000 },
-      ]
-      setChartData(mockChartData)
+      // Transform P&L breakdown to chart format
+      const chartDataFormatted = plData.breakdown.map((item) => ({
+        date: item.date,
+        revenue: item.revenue,
+        expenses: item.expenses,
+        profit: item.profit,
+      }))
+      setChartData(chartDataFormatted)
     } catch (error) {
-      console.error('Failed to fetch financial summary:', error)
+      console.error('Failed to fetch financial data:', error)
+      setSummary(null, error instanceof Error ? error.message : 'Failed to fetch data')
     } finally {
-      setLoading(false)
+      setSummaryLoading(false)
     }
   }
 
-  if (loading) {
+  if (summaryLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-lg text-slate-400">Loading financial reports...</p>
@@ -274,11 +256,11 @@ export default function FinancialReportsPage() {
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-white/40 transition-all duration-300">
               <h2 className="text-xl font-bold text-white mb-4">Revenue & Profit Trend</h2>
               <p className="text-slate-400 text-sm mb-4">Monthly revenue, expenses, and profit analysis</p>
-              {chartData && (
+              {chartData && chartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                    <XAxis dataKey="month" stroke="rgba(255,255,255,0.5)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" />
                     <YAxis stroke="rgba(255,255,255,0.5)" />
                     <Tooltip
                       contentStyle={{ backgroundColor: 'rgba(0,0,0,0.95)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '6px', padding: '8px 12px' }}
@@ -290,6 +272,8 @@ export default function FinancialReportsPage() {
                     <Line type="monotone" dataKey="profit" stroke="#10B981" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
+              ) : (
+                <p className="text-slate-400 text-center py-8">No data available for selected period</p>
               )}
             </div>
           </div>

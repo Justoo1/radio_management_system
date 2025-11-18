@@ -5,74 +5,38 @@ import { Button } from '@/components/ui/button'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
-
-interface PLReport {
-  period: { startDate: string; endDate: string }
-  groupBy: string
-  revenue: {
-    invoices: number
-    contracts: number
-    services: number
-    other: number
-    total: number
-  }
-  expenses: {
-    cogs: number
-    salary: number
-    rent: number
-    utilities: number
-    marketing: number
-    equipment: number
-    software: number
-    other: number
-    total: number
-  }
-  profit: {
-    gross: number
-    operating: number
-    net: number
-  }
-  margins: {
-    gross: number
-    operating: number
-    net: number
-  }
-  breakdown: Array<{
-    date: string
-    revenue: number
-    expenses: number
-    profit: number
-  }>
-}
+import { useFinancialStore } from '@/app/stores/financialStore'
+import { getPLReport } from '@/app/actions/financial-reports'
 
 export default function PLReportPage() {
-  const [report, setReport] = useState<PLReport | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { plReport, plLoading, setPLReport, setPLLoading } = useFinancialStore()
   const [groupBy, setGroupBy] = useState<'month' | 'quarter' | 'year'>('month')
 
   useEffect(() => {
-    fetchPLReport()
+    fetchPLReportData()
   }, [groupBy])
 
-  const fetchPLReport = async () => {
-    setLoading(true)
+  const fetchPLReportData = async () => {
+    setPLLoading(true)
     try {
       const now = new Date()
       const startDate = new Date(now.getFullYear(), 0, 1)
 
-      const response = await fetch(
-        `/api/reports/financial/pl?startDate=${startDate.toISOString().split('T')[0]}&endDate=${now.toISOString().split('T')[0]}&groupBy=${groupBy}`
+      const data = await getPLReport(
+        startDate.toISOString().split('T')[0],
+        now.toISOString().split('T')[0],
+        groupBy
       )
-      const data = await response.json()
-      setReport(data)
+      setPLReport(data)
     } catch (error) {
       console.error('Failed to fetch P&L report:', error)
+      setPLReport(null, error instanceof Error ? error.message : 'Failed to fetch data')
     } finally {
-      setLoading(false)
+      setPLLoading(false)
     }
   }
 
-  if (loading) {
+  if (plLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-lg text-slate-400">Loading P&L report...</p>
@@ -80,13 +44,15 @@ export default function PLReportPage() {
     )
   }
 
-  if (!report) {
+  if (!plReport) {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-lg text-slate-400">Failed to load P&L report</p>
       </div>
     )
   }
+
+  const report = plReport
 
   return (
     <div className="min-h-screen">
@@ -203,45 +169,13 @@ export default function PLReportPage() {
                     <td className="text-right font-semibold text-white py-3 px-4"></td>
                   </tr>
                   <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Cost of Goods Sold</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.cogs.toLocaleString()}</td>
+                    <td className="py-3 px-4 text-slate-300">Total Expenses</td>
+                    <td className="text-right py-3 px-4 text-slate-300">${(report.expenses.total || 0).toLocaleString()}</td>
                   </tr>
                   <tr className="bg-gradient-to-r from-red-600/20 to-red-600/10 border-b border-white/10">
                     <td className="font-semibold text-white py-3 px-4">Gross Profit</td>
                     <td className="text-right font-semibold text-white py-3 px-4">
-                      ${report.profit.gross.toLocaleString()}
-                    </td>
-                  </tr>
-
-                  {/* Operating Expenses */}
-                  <tr className="bg-gradient-to-r from-orange-600/20 to-orange-600/10">
-                    <td className="font-semibold text-white py-3 px-4">Operating Expenses</td>
-                    <td className="text-right font-semibold text-white py-3 px-4"></td>
-                  </tr>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Salary & Wages</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.salary.toLocaleString()}</td>
-                  </tr>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Rent & Utilities</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.rent.toLocaleString()}</td>
-                  </tr>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Marketing & Advertising</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.marketing.toLocaleString()}</td>
-                  </tr>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Equipment & Depreciation</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.equipment.toLocaleString()}</td>
-                  </tr>
-                  <tr className="border-b border-white/10">
-                    <td className="py-3 px-4 text-slate-300">Software & Subscriptions</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.expenses.software.toLocaleString()}</td>
-                  </tr>
-                  <tr className="bg-gradient-to-r from-orange-600/20 to-orange-600/10 border-b border-white/10">
-                    <td className="font-semibold text-white py-3 px-4">Total Operating Expenses</td>
-                    <td className="text-right font-semibold text-white py-3 px-4">
-                      ${(report.expenses.salary + report.expenses.rent + report.expenses.marketing + report.expenses.equipment + report.expenses.software).toLocaleString()}
+                      ${(report.profit.gross || 0).toLocaleString()}
                     </td>
                   </tr>
 
@@ -249,7 +183,7 @@ export default function PLReportPage() {
                   <tr className="bg-gradient-to-r from-emerald-600/20 to-emerald-600/10">
                     <td className="font-semibold text-white py-3 px-4 text-base">Net Income</td>
                     <td className="text-right font-semibold text-emerald-400 py-3 px-4 text-base">
-                      ${report.profit.net.toLocaleString()}
+                      ${(report.profit.net || 0).toLocaleString()}
                     </td>
                   </tr>
                 </tbody>
@@ -264,11 +198,11 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20">
               <p className="text-slate-400 text-sm font-medium mb-2">Gross Profit Margin</p>
-              <p className="text-4xl font-bold text-white mb-3">{report.margins.gross.toFixed(1)}%</p>
+              <p className="text-4xl font-bold text-white mb-3">{((report.margins?.gross) || 0).toFixed(1)}%</p>
               <div className="w-full bg-white/10 rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full"
-                  style={{ width: `${Math.min(report.margins.gross, 100)}%` }}
+                  style={{ width: `${Math.min((report.margins?.gross) || 0, 100)}%` }}
                 />
               </div>
             </div>
@@ -278,11 +212,11 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-purple-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/20">
               <p className="text-slate-400 text-sm font-medium mb-2">Operating Profit Margin</p>
-              <p className="text-4xl font-bold text-white mb-3">{report.margins.operating.toFixed(1)}%</p>
+              <p className="text-4xl font-bold text-white mb-3">{((report.margins?.operating) || 0).toFixed(1)}%</p>
               <div className="w-full bg-white/10 rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full"
-                  style={{ width: `${Math.min(report.margins.operating, 100)}%` }}
+                  style={{ width: `${Math.min((report.margins?.operating) || 0, 100)}%` }}
                 />
               </div>
             </div>
@@ -292,11 +226,11 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20">
               <p className="text-slate-400 text-sm font-medium mb-2">Net Profit Margin</p>
-              <p className="text-4xl font-bold text-emerald-400 mb-3">{report.margins.net.toFixed(1)}%</p>
+              <p className="text-4xl font-bold text-emerald-400 mb-3">{((report.margins?.net) || 0).toFixed(1)}%</p>
               <div className="w-full bg-white/10 rounded-full h-2">
                 <div
                   className="bg-gradient-to-r from-emerald-500 to-emerald-600 h-2 rounded-full"
-                  style={{ width: `${Math.min(report.margins.net, 100)}%` }}
+                  style={{ width: `${Math.min((report.margins?.net) || 0, 100)}%` }}
                 />
               </div>
             </div>

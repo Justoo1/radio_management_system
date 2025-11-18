@@ -63,6 +63,7 @@ model Organization {
   adCampaigns     AdCampaign[]
   contracts       Contract[]
   invoices        Invoice[]
+  expenses        Expense[] @relation("OrganizationExpenses")
   communications  Communication[]
   activityLogs    ActivityLog[]
   metrics         Metric[] @relation("OrganizationMetrics")
@@ -1167,6 +1168,43 @@ enum MetricType {
   SMS_CAMPAIGNS_SENT
   SMS_CAMPAIGNS_TOTAL
   GROWTH_RATE
+}
+
+// ============================================
+// EXPENSES (Organization-Scoped)
+// ============================================
+
+model Expense {
+  id              String    @id @default(cuid())
+
+  // Multi-tenant relationship
+  organizationId  String
+  organization    Organization @relation("OrganizationExpenses", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  category        String    // e.g., "Salary", "Rent", "Utilities", "Marketing"
+  description     String?   @db.Text
+  amount          Decimal   @db.Decimal(10, 2)
+
+  expenseDate     DateTime
+
+  notes           String?   @db.Text
+  status          ExpenseStatus @default(RECORDED)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([expenseDate])
+  @@index([status])
+  @@map("expenses")
+}
+
+enum ExpenseStatus {
+  RECORDED
+  APPROVED
+  PAID
+  CANCELLED
 }
 
 // ============================================
