@@ -32,8 +32,40 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await hash(validatedData.password, 10)
 
-    // Create transaction to create organization, default role, and user
+    // Create transaction to create organization, default role, user, and pro plan subscription
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Get or create the Pro plan
+      let proPlan = await tx.subscriptionPlan.findUnique({
+        where: { name: 'Professional' },
+      })
+
+      if (!proPlan) {
+        proPlan = await tx.subscriptionPlan.create({
+          data: {
+            name: 'Professional',
+            description: 'Professional plan with advanced features',
+            price: '500',
+            currency: 'GHS',
+            billingInterval: 'MONTHLY',
+            maxUsers: 50,
+            maxClients: 500,
+            maxSMSPerMonth: 5000,
+            maxStorageGB: 50,
+            maxPrograms: 200,
+            features: JSON.stringify([
+              'Unlimited programs',
+              'Advanced analytics',
+              'Priority support',
+              'Custom integrations',
+              'Team management',
+            ]),
+            isPopular: true,
+            isActive: true,
+            sortOrder: 2,
+          },
+        })
+      }
+
       // Create a temporary placeholder organization (will be updated later)
       const tempOrganization = await tx.organization.create({
         data: {
@@ -46,16 +78,36 @@ export async function POST(req: NextRequest) {
           phone: validatedData.phone,
           country: validatedData.country || 'Ghana',
           status: 'TRIAL',
-          trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+          trialStartDate: new Date(),
+          trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          isTrialUsed: false,
         },
       })
 
-      // Create default ADMIN role for this organization
-      const adminRole = await tx.role.create({
+      // Create Pro plan subscription with 30-day trial
+      const subscription = await tx.subscription.create({
         data: {
-          name: 'ADMIN',
-          displayName: 'Administrator',
-          description: 'Full access to all features',
+          planId: proPlan.id,
+          status: 'TRIALING',
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
+        },
+      })
+
+      // Update organization with subscription reference
+      const organizationWithSubscription = await tx.organization.update({
+        where: { id: tempOrganization.id },
+        data: {
+          subscriptionId: subscription.id,
+        },
+      })
+
+      // Create default OWNER role for this organization
+      const ownerRole = await tx.role.create({
+        data: {
+          name: 'OWNER',
+          displayName: 'Owner',
+          description: 'Full access to all features and organization management',
           organizationId: tempOrganization.id,
           isSystemRole: true,
           permissions: {
@@ -73,7 +125,7 @@ export async function POST(req: NextRequest) {
           name: validatedData.name || validatedData.email.split('@')[0],
           password: hashedPassword,
           organizationId: tempOrganization.id,
-          roleId: adminRole.id,
+          roleId: ownerRole.id,
           status: 'ACTIVE',
         },
       })
@@ -86,7 +138,7 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      return { organization, user }
+      return { organization, user, subscription }
     })
 
     return NextResponse.json(

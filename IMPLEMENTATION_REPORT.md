@@ -11,7 +11,7 @@ Successfully implemented a complete invoice PDF generation and download system f
 ## Project Overview
 
 ### Objective
-Implement PDF download functionality for invoices that displays:
+Implement PDF download functionality for invoices that displays: 
 1. Invoice details and line items
 2. Payment summary (amount paid and outstanding balance)
 3. Recent payment history (up to 5 payments)

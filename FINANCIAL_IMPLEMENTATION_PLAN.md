@@ -13,6 +13,7 @@ This document outlines the implementation plan for a comprehensive financial rep
 - `lib/validations/payment.ts`
 - `lib/validations/adcampaign.ts`
 
+
 ### Schema Structure:
 
 #### Invoice Schema

@@ -18,6 +18,7 @@ import {
   BarChart3,
   Users2,
   Settings,
+  Receipt,
 } from 'lucide-react'
 
 const menuItems = [
@@ -29,6 +30,7 @@ const menuItems = [
   { href: '/advertising', label: 'Advertising', icon: Megaphone },
   { href: '/contracts', label: 'Contracts', icon: FileText },
   { href: '/invoices', label: 'Invoices', icon: FileText },
+  { href: '/expenses', label: 'Expenses', icon: Receipt },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/team', label: 'Team', icon: Users2 },
   { href: '/settings', label: 'Settings', icon: Settings },

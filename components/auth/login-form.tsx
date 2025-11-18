@@ -5,8 +5,8 @@
 
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,7 +16,22 @@ import { loginSchema, type LoginInput } from '@/lib/validations/auth'
 
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    // Check for error in URL params (NextAuth redirects with error)
+    const error = searchParams.get('error')
+    if (error === 'CredentialsSignin') {
+      // Check if there's additional context in the error
+      const errorMsg = searchParams.get('code')
+      if (errorMsg === 'ORGANIZATION_SUSPENDED') {
+        router.push('/suspended')
+      } else if (errorMsg === 'ORGANIZATION_EXPIRED') {
+        router.push('/expired')
+      }
+    }
+  }, [searchParams, router])
 
   const {
     register,
@@ -30,6 +45,26 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
+      // First, check organization status via API
+      const checkResponse = await fetch('/api/auth/check-org-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email }),
+      })
+
+      if (checkResponse.ok) {
+        const { status } = await checkResponse.json()
+        if (status === 'SUSPENDED' || status === 'CANCELLED') {
+          router.push('/suspended')
+          return
+        }
+        if (status === 'EXPIRED') {
+          router.push('/expired')
+          return
+        }
+      }
+
+      // Proceed with sign in
       const result = await signIn('credentials', {
         email: data.email,
         password: data.password,
@@ -37,7 +72,18 @@ export function LoginForm() {
       })
 
       if (result?.error) {
-        toast.error(result.error || 'Failed to sign in')
+        // Check if error contains organization status messages
+        if (result.error.includes('SUSPENDED')) {
+          router.push('/suspended')
+          return
+        }
+        if (result.error.includes('EXPIRED')) {
+          router.push('/expired')
+          return
+        }
+
+        // Generic error message
+        toast.error('Invalid email or password')
       } else if (result?.ok) {
         toast.success('Signed in successfully!')
         router.push('/dashboard')
