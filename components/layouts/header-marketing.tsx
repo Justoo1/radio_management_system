@@ -14,22 +14,22 @@ export default function HeaderMarketing() {
   return (
     <div className="flex items-center justify-between px-6 py-4">
       {/* Logo */}
-      <Link href="/" className="text-2xl font-bold text-slate-900">
+      <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
         RadioMgmt
       </Link>
 
       {/* Navigation Links */}
       <nav className="hidden md:flex items-center gap-8">
-        <Link href="/" className="text-slate-600 hover:text-slate-900 transition">
+        <Link href="/" className="text-slate-600 hover:text-purple-600 transition font-medium">
           Home
         </Link>
-        <Link href="/pricing" className="text-slate-600 hover:text-slate-900 transition">
+        <Link href="/pricing" className="text-slate-600 hover:text-purple-600 transition font-medium">
           Pricing
         </Link>
-        <Link href="/features" className="text-slate-600 hover:text-slate-900 transition">
+        <Link href="/features" className="text-slate-600 hover:text-purple-600 transition font-medium">
           Features
         </Link>
-        <Link href="/about" className="text-slate-600 hover:text-slate-900 transition">
+        <Link href="/about" className="text-slate-600 hover:text-purple-600 transition font-medium">
           About
         </Link>
       </nav>
@@ -39,7 +39,7 @@ export default function HeaderMarketing() {
         {session ? (
           <Link
             href="/dashboard"
-            className="bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition"
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 font-semibold"
           >
             Dashboard
           </Link>
@@ -47,13 +47,13 @@ export default function HeaderMarketing() {
           <>
             <Link
               href="/login"
-              className="text-slate-600 hover:text-slate-900 transition"
+              className="text-slate-600 hover:text-purple-600 transition font-medium"
             >
               Sign In
             </Link>
             <Link
               href="/register"
-              className="bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition"
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 font-semibold"
             >
               Get Started
             </Link>
