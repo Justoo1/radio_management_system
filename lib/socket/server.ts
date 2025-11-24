@@ -17,15 +17,18 @@ export const initSocket = (server: HTTPServer): SocketServer => {
 
   // Determine allowed origins based on environment
   const allowedOrigins = [
-    process.env.NEXTAUTH_URL || 'http://localhost:3000',
+    // Development
     'http://localhost:3000',
     'http://localhost:3001',
+    // NEXTAUTH_URL (production frontend)
+    process.env.NEXTAUTH_URL || 'http://localhost:3000',
+    // Custom domain (from environment variable)
+    process.env.SOCKET_ALLOWED_ORIGIN || '',
     // Vercel preview and production URLs
     ...(process.env.VERCEL_URL ? [
       `https://${process.env.VERCEL_URL}`,
-      `https://*.${process.env.VERCEL_URL.split('.').slice(-2).join('.')}`,
     ] : []),
-  ].filter(Boolean);
+  ].filter((origin) => origin && origin.length > 0);
 
   io = new SocketIOServer(server, {
     cors: {
