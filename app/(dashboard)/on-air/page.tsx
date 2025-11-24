@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Radio, Wifi, WifiOff } from 'lucide-react';
-import { useOnAirSocket } from './hooks/use-onair-socket';
+import { useOnAirPolling } from './hooks/use-onair-polling';
 import { NowPlayingCard } from './components/now-playing-card';
 import { QueueList } from './components/queue-list';
 import { LiveRequestsFeed } from './components/live-requests-feed';
@@ -19,53 +19,14 @@ export default function OnAirDashboard() {
     nowPlaying,
     queue,
     requests,
-    skipSong,
-    updateQueue,
-    approveRequest,
-    rejectRequest,
     refetchQueue,
     refetchNowPlaying,
     refetchRequests,
-  } = useOnAirSocket(
+  } = useOnAirPolling(
     (session?.user as any)?.organizationId || '',
     (session?.user as any)?.id || ''
   );
 
-  // Fetch initial data
-  useEffect(() => {
-    if (session?.user) {
-      fetchInitialData();
-    }
-  }, [session]);
-
-  const fetchInitialData = async () => {
-    try {
-      // Fetch current playing
-      const nowResponse = await fetch('/api/onair/now');
-      if (nowResponse.ok) {
-        const nowData = await nowResponse.json();
-        if (nowData) {
-          // Now playing is fetched by useOnAirSocket hook
-        }
-      }
-
-      // Fetch queue
-      const queueResponse = await fetch('/api/onair/queue');
-      if (queueResponse.ok) {
-        const queueData = await queueResponse.json();
-        // Queue will be fetched by useOnAirSocket
-      }
-
-      // Fetch requests
-      const requestsResponse = await fetch('/api/onair/requests');
-      if (requestsResponse.ok) {
-        const requestsData = await requestsResponse.json();
-        // Requests will be fetched by useOnAirSocket
-      }
-    } catch (error) {
-      console.error('Error fetching initial data:', error);
-    }
-  };
 
   const handleSkip = async () => {
     try {
@@ -74,7 +35,6 @@ export default function OnAirDashboard() {
       });
 
       if (response.ok) {
-        skipSong();
         toast.success('Program ended successfully');
         // Refetch now playing to ensure updated state
         await refetchNowPlaying();
@@ -164,6 +124,32 @@ export default function OnAirDashboard() {
     }
   };
 
+  const handleQueueReorder = async (items: typeof queue) => {
+    try {
+      const response = await fetch('/api/onair/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reorder',
+          items: items.map((item, index) => ({
+            id: item.id,
+            position: index + 1,
+          })),
+        }),
+      });
+
+      if (response.ok) {
+        // Refetch queue to ensure consistency
+        await refetchQueue();
+      }
+    } catch (error) {
+      console.error('Error reordering queue:', error);
+      toast.error('Failed to reorder queue');
+      // Refetch to restore previous state
+      await refetchQueue();
+    }
+  };
+
   const handlePlayQueueItem = async (queueItemId: string) => {
     try {
       const queueItem = queue.find(item => item.id === queueItemId);
@@ -208,7 +194,6 @@ export default function OnAirDashboard() {
       });
 
       if (response.ok) {
-        approveRequest(requestId);
         toast.success('Request approved');
         // Refetch requests to ensure updated state
         await refetchRequests();
@@ -228,7 +213,6 @@ export default function OnAirDashboard() {
       });
 
       if (response.ok) {
-        rejectRequest(requestId);
         toast.success('Request rejected');
         // Refetch requests to ensure updated state
         await refetchRequests();
@@ -299,7 +283,7 @@ export default function OnAirDashboard() {
           {/* Queue */}
           <QueueList
             queue={queue}
-            onUpdateQueue={updateQueue}
+            onUpdateQueue={handleQueueReorder}
             onRemoveItem={handleRemoveFromQueue}
             onPlayNext={handlePlayNext}
             onPlayItem={handlePlayQueueItem}

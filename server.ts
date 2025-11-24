@@ -1,7 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { parse } from 'url';
 import next from 'next';
-import { initSocket } from './lib/socket/server';
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
@@ -17,12 +16,8 @@ app.prepare().then(() => {
     await handle(req, res, parsedUrl);
   });
 
-  // Initialize Socket.IO
-  initSocket(server);
-
   server.listen(port, hostname, () => {
     const displayHost = hostname === '0.0.0.0' ? 'localhost' : hostname;
     console.log(`🚀 Server ready on http://${displayHost}:${port}`);
-    console.log(`📡 Socket.IO ready on http://${displayHost}:${port}/api/socket/io`);
   });
 });
