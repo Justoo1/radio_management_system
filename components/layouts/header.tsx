@@ -23,8 +23,9 @@ export default function Header() {
       {/* Left side */}
       <div className="flex items-center gap-4">
         <button
+          id="menu-button"
           onClick={toggleSidebar}
-          className="lg:hidden p-2 hover:bg-slate-100 rounded-lg transition"
+          className="lg:hidden p-2 hover:bg-slate-700 text-gray-50 rounded-lg transition"
         >
           <Menu size={20} />
         </button>

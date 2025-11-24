@@ -8,6 +8,7 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import Sidebar from '@/components/layouts/sidebar'
 import Header from '@/components/layouts/header'
+import MobileSidebarOverlay from '@/components/layouts/mobile-sidebar-overlay'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,10 +25,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900">
-      {/* Sidebar */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 bg-slate-900 text-white flex-col">
         <Sidebar />
       </aside>
+
+      {/* Mobile Sidebar Overlay */}
+      <MobileSidebarOverlay />
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden">

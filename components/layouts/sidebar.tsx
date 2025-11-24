@@ -46,15 +46,21 @@ const menuItems: MenuItem[] = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  hideLogoOnMobile?: boolean
+}
+
+export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
   const pathname = usePathname()
 
   return (
     <div className="flex flex-col h-full">
-      {/* Logo */}
-      <Link href="/dashboard" className="px-6 py-6 border-b border-slate-800">
-        <h1 className="text-xl font-bold text-white">RadioMgmt</h1>
-      </Link>
+      {/* Logo - hidden on mobile sidebar since overlay has it */}
+      {!hideLogoOnMobile && (
+        <Link href="/dashboard" className="px-6 py-6 border-b border-slate-800">
+          <h1 className="text-xl font-bold text-white">RadioMgmt</h1>
+        </Link>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
