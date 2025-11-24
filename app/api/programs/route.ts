@@ -53,6 +53,14 @@ export async function GET(req: NextRequest) {
       prisma.program.findMany({
         where,
         include: {
+          host: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
           schedules: true,
           episodes: true,
         },

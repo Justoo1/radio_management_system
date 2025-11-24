@@ -32,6 +32,14 @@ export async function GET(
     const program = await prisma.program.findUnique({
       where: { id },
       include: {
+        host: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
         schedules: true,
         episodes: true,
       },
@@ -107,6 +115,14 @@ export async function PATCH(
       where: { id },
       data: validatedData as any,
       include: {
+        host: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
         schedules: true,
         episodes: true,
       },

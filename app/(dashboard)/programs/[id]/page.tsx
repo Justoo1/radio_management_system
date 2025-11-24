@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Save, ArrowLeft, Trash2, CheckCircle, AlertCircle, Clock, Users, Radio, TrendingUp } from 'lucide-react'
+import { Save, ArrowLeft, Trash2, CheckCircle, AlertCircle, Clock, TrendingUp } from 'lucide-react'
 
 interface Program {
   id: string
@@ -15,7 +15,8 @@ interface Program {
   description: string
   duration: number
   genre: string
-  host: string
+  hostId?: string
+  host?: { id: string; name: string }
   isActive: boolean
   createdAt: string
 }
@@ -41,11 +42,14 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
     name: '',
     description: '',
     genre: '',
-    host: '',
+    hostId: '',
     durationHours: 0,
     durationMinutes: 0,
     isActive: false,
   })
+
+  const [users, setUsers] = useState<Array<{ id: string; name: string }>>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
 
   useEffect(() => {
     const loadParams = async () => {
@@ -55,44 +59,53 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
     loadParams()
   }, [params])
 
+  // Load users for host dropdown
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setLoadingUsers(true)
+        const response = await fetch('/api/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data.data || [])
+        }
+      } catch (error) {
+        console.error('Failed to load users:', error)
+      } finally {
+        setLoadingUsers(false)
+      }
+    }
+
+    loadUsers()
+  }, [])
+
+  // Load program details
   useEffect(() => {
     if (!id) return
 
     const fetchProgram = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch(`/api/programs/${id}`)
-        // const data = await response.json()
+        const response = await fetch(`/api/programs/${id}`)
 
-        // Mock data
-        const mockProgram: Program = {
-          id,
-          name: 'Morning Drive Time',
-          description: 'High-energy morning show with news, music, and entertainment for commuters',
-          duration: 180,
-          genre: 'Talk/News',
-          host: 'John Mensah',
-          isActive: true,
-          createdAt: '2024-01-10',
+        if (!response.ok) {
+          if (response.status === 404) {
+            setProgram(null)
+          } else {
+            throw new Error('Failed to fetch program')
+          }
+          return
         }
 
-        const mockStats: ProgramStats = {
-          listeners: 45230,
-          averageRating: 4.7,
-          weeklyListeners: 156800,
-          retentionRate: 87,
-        }
-
-        setProgram(mockProgram)
-        setStats(mockStats)
+        const program = await response.json()
+        setProgram(program)
         setFormData({
-          name: mockProgram.name,
-          description: mockProgram.description,
-          genre: mockProgram.genre,
-          host: mockProgram.host,
-          durationHours: Math.floor(mockProgram.duration / 60),
-          durationMinutes: mockProgram.duration % 60,
-          isActive: mockProgram.isActive,
+          name: program.name,
+          description: program.description,
+          genre: program.genre,
+          hostId: program.hostId || '',
+          durationHours: Math.floor(program.duration / 60),
+          durationMinutes: program.duration % 60,
+          isActive: program.isActive,
         })
       } catch (error) {
         console.error('Failed to fetch program:', error)
@@ -146,8 +159,8 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
     if (!formData.genre.trim()) {
       newErrors.genre = 'Genre is required'
     }
-    if (!formData.host.trim()) {
-      newErrors.host = 'Host name is required'
+    if (!formData.hostId.trim()) {
+      newErrors.hostId = 'Host/Presenter is required'
     }
 
     const totalMinutes = formData.durationHours * 60 + formData.durationMinutes
@@ -169,37 +182,33 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
     setSaving(true)
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/programs/${id}`, {
-      //   method: 'PATCH',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     ...formData,
-      //     duration: formData.durationHours * 60 + formData.durationMinutes,
-      //   }),
-      // })
-
-      // Mock save
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-
-      if (program) {
-        setProgram({
-          ...program,
+      const response = await fetch(`/api/programs/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: formData.name,
           description: formData.description,
           genre: formData.genre,
-          host: formData.host,
+          hostId: formData.hostId,
           duration: formData.durationHours * 60 + formData.durationMinutes,
           isActive: formData.isActive,
-        })
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to update program')
       }
+
+      const updatedProgram = await response.json()
+      setProgram(updatedProgram)
 
       setSaved(true)
       setEditing(false)
       setTimeout(() => setSaved(false), 3000)
     } catch (error) {
       console.error('Failed to update program:', error)
-      setErrors({ submit: 'Failed to update program. Please try again.' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to update program. Please try again.' })
     } finally {
       setSaving(false)
     }
@@ -211,17 +220,19 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
     }
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/programs/${id}`, {
-      //   method: 'DELETE',
-      // })
+      const response = await fetch(`/api/programs/${id}`, {
+        method: 'DELETE',
+      })
 
-      // Mock delete
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to delete program')
+      }
+
       window.location.href = '/programs'
     } catch (error) {
       console.error('Failed to delete program:', error)
-      setErrors({ delete: 'Failed to delete program. Please try again.' })
+      setErrors({ delete: error instanceof Error ? error.message : 'Failed to delete program. Please try again.' })
     }
   }
 
@@ -320,7 +331,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                     <div>
                       <p className="text-sm text-slate-400 mb-1">Host</p>
-                      <p className="text-lg font-medium text-white">{program.host}</p>
+                      <p className="text-lg font-medium text-white">{program.host?.name || 'Not assigned'}</p>
                     </div>
                     <div>
                       <p className="text-sm text-slate-400 mb-1">Duration</p>
@@ -428,20 +439,29 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
 
                   {/* Host */}
                   <div>
-                    <label htmlFor="host" className="block text-sm font-medium text-slate-300 mb-2">
+                    <label htmlFor="hostId" className="block text-sm font-medium text-slate-300 mb-2">
                       Host/Presenter
                     </label>
-                    <input
-                      type="text"
-                      id="host"
-                      name="host"
-                      value={formData.host}
+                    <select
+                      id="hostId"
+                      name="hostId"
+                      value={formData.hostId}
                       onChange={handleChange}
-                      className={`w-full px-4 py-3 bg-white/10 border rounded-xl focus:ring-2 focus:border-transparent outline-none text-white placeholder-slate-500 backdrop-blur transition-all duration-300 hover:border-white/30 ${
-                        errors.host ? 'border-red-500/50 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
+                      disabled={loadingUsers || !editing}
+                      className={`w-full px-4 py-3 bg-white/10 border rounded-xl focus:ring-2 focus:border-transparent outline-none text-white backdrop-blur transition-all duration-300 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed ${
+                        errors.hostId ? 'border-red-500/50 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
                       }`}
-                    />
-                    {errors.host && <p className="text-red-400 text-sm mt-1">{errors.host}</p>}
+                    >
+                      <option value="" className="bg-slate-900 text-white">
+                        {loadingUsers ? 'Loading presenters...' : 'Select a presenter'}
+                      </option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id} className="bg-slate-900 text-white">
+                          {user.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.hostId && <p className="text-red-400 text-sm mt-1">{errors.hostId}</p>}
                   </div>
 
                   {/* Duration */}
@@ -561,10 +581,22 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
                 <h3 className="font-semibold text-white mb-4">Actions</h3>
                 <div className="space-y-2">
                   <Link
-                    href={`/programs/calendar`}
+                    href={`/programs/${id}/schedules`}
                     className="block w-full px-4 py-2 bg-gradient-to-r from-purple-600/40 to-pink-600/40 hover:from-purple-600/60 hover:to-pink-600/60 border border-purple-500/30 hover:border-purple-400/50 text-purple-200 rounded-lg text-center font-semibold transition-all duration-300"
                   >
-                    View Schedule
+                    Manage Schedules
+                  </Link>
+                  <Link
+                    href={`/programs/${id}/episodes`}
+                    className="block w-full px-4 py-2 bg-gradient-to-r from-blue-600/40 to-cyan-600/40 hover:from-blue-600/60 hover:to-cyan-600/60 border border-blue-500/30 hover:border-blue-400/50 text-blue-200 rounded-lg text-center font-semibold transition-all duration-300"
+                  >
+                    Manage Episodes
+                  </Link>
+                  <Link
+                    href={`/programs/calendar`}
+                    className="block w-full px-4 py-2 bg-gradient-to-r from-emerald-600/40 to-teal-600/40 hover:from-emerald-600/60 hover:to-teal-600/60 border border-emerald-500/30 hover:border-emerald-400/50 text-emerald-200 rounded-lg text-center font-semibold transition-all duration-300"
+                  >
+                    View Calendar
                   </Link>
                   <button
                     onClick={handleDelete}
@@ -575,6 +607,7 @@ export default function ProgramDetailPage({ params }: { params: Promise<{ id: st
                   </button>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

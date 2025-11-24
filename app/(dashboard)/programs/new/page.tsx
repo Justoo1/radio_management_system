@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Save, ArrowLeft, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 
@@ -13,18 +13,34 @@ interface FormData {
   name: string
   description: string
   genre: string
-  host: string
+  hostId: string
+  teamId: string
   durationHours: number
   durationMinutes: number
   isActive: boolean
 }
 
+interface User {
+  id: string
+  name: string
+}
+
+interface Team {
+  id: string
+  name: string
+}
+
 export default function NewProgramPage() {
+  const [users, setUsers] = useState<User[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(true)
+  const [loadingTeams, setLoadingTeams] = useState(true)
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
     genre: '',
-    host: '',
+    hostId: '',
+    teamId: '',
     durationHours: 1,
     durationMinutes: 0,
     isActive: true,
@@ -33,6 +49,43 @@ export default function NewProgramPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Load presenters/hosts and teams on mount
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        // Fetch all users - can be hosts/presenters
+        const response = await fetch('/api/users?pageSize=100')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data.data || [])
+        } else {
+          console.error('Failed to load users:', response.statusText)
+        }
+      } catch (error) {
+        console.error('Failed to load presenters:', error)
+      } finally {
+        setLoadingUsers(false)
+      }
+    }
+
+    const loadTeams = async () => {
+      try {
+        const response = await fetch('/api/teams?pageSize=100')
+        if (response.ok) {
+          const data = await response.json()
+          setTeams(data.data || [])
+        }
+      } catch (error) {
+        console.error('Failed to load teams:', error)
+      } finally {
+        setLoadingTeams(false)
+      }
+    }
+
+    loadUsers()
+    loadTeams()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target
@@ -75,8 +128,8 @@ export default function NewProgramPage() {
     if (!formData.genre.trim()) {
       newErrors.genre = 'Genre is required'
     }
-    if (!formData.host.trim()) {
-      newErrors.host = 'Host name is required'
+    if (!formData.hostId.trim()) {
+      newErrors.hostId = 'Host/Presenter is required'
     }
 
     const totalMinutes = formData.durationHours * 60 + formData.durationMinutes
@@ -98,18 +151,25 @@ export default function NewProgramPage() {
     setSaving(true)
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('/api/programs', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     ...formData,
-      //     duration: formData.durationHours * 60 + formData.durationMinutes,
-      //   }),
-      // })
+      const response = await fetch('/api/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          genre: formData.genre,
+          duration: formData.durationHours * 60 + formData.durationMinutes,
+          hostId: formData.hostId,
+          teamId: formData.teamId || null,
+          isActive: formData.isActive,
+        }),
+      })
 
-      // Mock save
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to create program')
+      }
+
       setSaved(true)
 
       // Reset form
@@ -117,7 +177,8 @@ export default function NewProgramPage() {
         name: '',
         description: '',
         genre: '',
-        host: '',
+        hostId: '',
+        teamId: '',
         durationHours: 1,
         durationMinutes: 0,
         isActive: true,
@@ -130,7 +191,7 @@ export default function NewProgramPage() {
       }, 3000)
     } catch (error) {
       console.error('Failed to create program:', error)
-      setErrors({ submit: 'Failed to create program. Please try again.' })
+      setErrors({ submit: error instanceof Error ? error.message : 'Failed to create program. Please try again.' })
     } finally {
       setSaving(false)
     }
@@ -260,23 +321,55 @@ export default function NewProgramPage() {
                   {errors.genre && <p className="text-red-400 text-sm mt-1">{errors.genre}</p>}
                 </div>
 
+                {/* Team */}
+                <div>
+                  <label htmlFor="teamId" className="block text-sm font-medium text-slate-300 mb-2">
+                    Team (Optional)
+                  </label>
+                  <select
+                    id="teamId"
+                    name="teamId"
+                    value={formData.teamId}
+                    onChange={handleChange}
+                    disabled={loadingTeams}
+                    className={`w-full px-4 py-3 bg-white/10 border rounded-xl focus:ring-2 focus:border-transparent outline-none text-white backdrop-blur transition-all duration-300 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed border-white/20 focus:ring-purple-500`}
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      {loadingTeams ? 'Loading teams...' : 'Select a team (optional)'}
+                    </option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id} className="bg-slate-900 text-white">
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Host */}
                 <div>
-                  <label htmlFor="host" className="block text-sm font-medium text-slate-300 mb-2">
-                    Host/Presenter Name *
+                  <label htmlFor="hostId" className="block text-sm font-medium text-slate-300 mb-2">
+                    Host/Presenter *
                   </label>
-                  <input
-                    type="text"
-                    id="host"
-                    name="host"
-                    value={formData.host}
+                  <select
+                    id="hostId"
+                    name="hostId"
+                    value={formData.hostId}
                     onChange={handleChange}
-                    placeholder="e.g., John Mensah"
-                    className={`w-full px-4 py-3 bg-white/10 border rounded-xl focus:ring-2 focus:border-transparent outline-none text-white placeholder-slate-500 backdrop-blur transition-all duration-300 hover:border-white/30 ${
-                      errors.host ? 'border-red-500/50 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
+                    disabled={loadingUsers || users.length === 0}
+                    className={`w-full px-4 py-3 bg-white/10 border rounded-xl focus:ring-2 focus:border-transparent outline-none text-white backdrop-blur transition-all duration-300 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      errors.hostId ? 'border-red-500/50 focus:ring-red-500' : 'border-white/20 focus:ring-purple-500'
                     }`}
-                  />
-                  {errors.host && <p className="text-red-400 text-sm mt-1">{errors.host}</p>}
+                  >
+                    <option value="" className="bg-slate-900 text-white">
+                      {loadingUsers ? 'Loading presenters...' : users.length === 0 ? 'No users available' : 'Select a presenter'}
+                    </option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id} className="bg-slate-900 text-white">
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.hostId && <p className="text-red-400 text-sm mt-1">{errors.hostId}</p>}
                 </div>
 
                 {/* Duration */}

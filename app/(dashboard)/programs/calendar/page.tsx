@@ -5,9 +5,28 @@
 
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+
+interface Program {
+  id: string
+  name: string
+  duration: number
+  genre?: string
+  hostId?: string
+  host?: { id: string; name: string }
+}
+
+interface Schedule {
+  id: string
+  programId: string
+  program?: Program
+  startTime: string // HH:MM
+  endTime: string // HH:MM
+  dayOfWeek: number // 0-6 (Sunday-Saturday)
+  isActive: boolean
+}
 
 interface ProgramSchedule {
   id: string
@@ -20,11 +39,58 @@ interface ProgramSchedule {
 }
 
 export default function ProgramCalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2024, 1, 1)) // February 2024
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [schedules, setSchedules] = useState<ProgramSchedule[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock program schedule data
-  const schedules: ProgramSchedule[] = [
+  // Fetch all programs and their schedules
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // Fetch all programs
+        const programsRes = await fetch('/api/programs?pageSize=100')
+        if (!programsRes.ok) throw new Error('Failed to fetch programs')
+        const programsData = await programsRes.json()
+        const programs: Program[] = programsData.data || []
+
+        // Fetch schedules for each program
+        const allSchedules: ProgramSchedule[] = []
+        for (const program of programs) {
+          const schedulesRes = await fetch(`/api/programs/${program.id}/schedules`)
+          if (schedulesRes.ok) {
+            const schedulesData = await schedulesRes.json()
+            const programSchedules = (schedulesData.data || []).map((schedule: Schedule) => ({
+              id: schedule.id,
+              name: program.name,
+              host: program.host?.name || 'Unknown Host',
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+              dayOfWeek: schedule.dayOfWeek,
+              genre: program.genre || 'General',
+            }))
+            allSchedules.push(...programSchedules)
+          }
+        }
+
+        setSchedules(allSchedules)
+      } catch (err) {
+        console.error('Failed to fetch schedules:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load schedules')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchSchedules()
+  }, [])
+
+  // Keep fallback data if needed
+  const fallbackSchedules: ProgramSchedule[] = [
     {
       id: '1',
       name: 'Morning Drive Time',
@@ -129,9 +195,12 @@ export default function ProgramCalendarPage() {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const dayTimes = ['06:00', '09:00', '12:00', '14:00', '17:00', '18:00', '21:00', '23:59']
 
+  // Use fetched data, fallback to empty if no data
+  const displaySchedules = schedules.length > 0 ? schedules : fallbackSchedules
+
   const daySchedules = useMemo(() => {
     if (selectedDay === null) return []
-    return schedules.filter((s) => s.dayOfWeek === selectedDay)
+    return displaySchedules.filter((s) => s.dayOfWeek === selectedDay)
   }, [selectedDay])
 
   const previousMonth = () => {
@@ -174,6 +243,21 @@ export default function ProgramCalendarPage() {
           </h1>
           <p className="text-slate-400 text-lg">View your weekly program calendar and schedule</p>
         </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-white/10 border border-white/20 rounded-xl p-8 text-center">
+            <div className="w-8 h-8 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-400">Loading schedule data...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-8 text-red-300 text-sm">
+            Failed to load schedules: {error}
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

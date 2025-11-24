@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Search, Plus, Edit, Trash2, Clock, Radio, ArrowUpRight } from 'lucide-react'
+import { Search, Plus, Clock, Radio, ArrowUpRight } from 'lucide-react'
 
 interface Program {
   id: string
@@ -15,7 +15,7 @@ interface Program {
   description: string
   duration: number
   genre: string
-  host: string
+  host: string | { name: string }
   isActive: boolean
   createdAt: string
 }
@@ -24,6 +24,8 @@ export default function ProgramsPage() {
   const [programs, setPrograms] = useState<Program[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPrograms = async () => {
@@ -39,7 +41,7 @@ export default function ProgramsPage() {
               description: program.description,
               duration: program.duration || 60,
               genre: program.genre || 'General',
-              host: program.host || 'Unknown',
+              host: program.host ? program.host.name : 'Not assigned',
               isActive: program.isActive,
               createdAt: new Date(program.createdAt).toLocaleDateString(),
             }))
@@ -55,11 +57,35 @@ export default function ProgramsPage() {
     fetchPrograms()
   }, [])
 
+  const handleDelete = async (programId: string, programName: string) => {
+    if (!confirm(`Are you sure you want to delete "${programName}"?`)) return
+
+    try {
+      setDeleting(programId)
+      const response = await fetch(`/api/programs/${programId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || 'Failed to delete program')
+      }
+
+      setPrograms(programs.filter((p) => p.id !== programId))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete program'
+      setError(message)
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setDeleting(null)
+    }
+  }
+
   const filteredPrograms = programs.filter(
     (program) =>
       program.name.toLowerCase().includes(search.toLowerCase()) ||
       program.genre.toLowerCase().includes(search.toLowerCase()) ||
-      program.host.toLowerCase().includes(search.toLowerCase())
+      (typeof program.host === 'string' ? program.host : program.host.name).toLowerCase().includes(search.toLowerCase())
   )
 
   const activePrograms = programs.filter((p) => p.isActive).length
@@ -74,6 +100,19 @@ export default function ProgramsPage() {
       </div>
 
       <div className="relative z-10 p-8">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-500/20 border border-red-500/50 rounded-xl p-4 text-red-300 text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-300 hover:text-red-200 text-lg font-semibold"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex items-start justify-between mb-6">
@@ -182,7 +221,8 @@ export default function ProgramsPage() {
 
                   <div className="mb-4 pt-4 border-t border-white/10">
                     <p className="text-sm text-slate-400">
-                      <span className="font-medium text-slate-300">Host:</span> {program.host}
+                      <span className="font-medium text-slate-300">Host:</span>{' '}
+                      {typeof program.host === 'string' ? program.host : program.host.name}
                     </p>
                   </div>
 
@@ -194,14 +234,11 @@ export default function ProgramsPage() {
                       View
                     </Link>
                     <button
-                      onClick={() => {
-                        if (confirm('Are you sure?')) {
-                          setPrograms(programs.filter((p) => p.id !== program.id))
-                        }
-                      }}
-                      className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 hover:border-red-400/50 rounded-lg transition-all duration-300 text-sm font-semibold"
+                      onClick={() => handleDelete(program.id, program.name)}
+                      disabled={deleting === program.id}
+                      className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 hover:border-red-400/50 rounded-lg transition-all duration-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Delete
+                      {deleting === program.id ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>

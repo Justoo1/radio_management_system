@@ -19,12 +19,23 @@ import {
   Users2,
   Settings,
   Receipt,
+  Podcast,
+  LucideIcon,
 } from 'lucide-react'
 
-const menuItems = [
+interface MenuItem {
+  href: string
+  label: string
+  icon: LucideIcon
+  highlight?: boolean
+}
+
+const menuItems: MenuItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/on-air', label: 'Live On-Air', icon: Podcast, highlight: true },
   { href: '/clients', label: 'Clients', icon: Users },
   { href: '/programs', label: 'Programs', icon: Radio },
+  { href: '/teams', label: 'Teams', icon: Users2, highlight: true },
   { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare },
   { href: '/media', label: 'Media Library', icon: Image },
   { href: '/advertising', label: 'Advertising', icon: Megaphone },
@@ -32,7 +43,6 @@ const menuItems = [
   { href: '/invoices', label: 'Invoices', icon: FileText },
   { href: '/expenses', label: 'Expenses', icon: Receipt },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/team', label: 'Team', icon: Users2 },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -58,12 +68,29 @@ export default function Sidebar() {
               href={item.href}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition ${
                 isActive
-                  ? 'bg-slate-800 text-white'
+                  ? item.highlight
+                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-500/50'
+                    : 'bg-slate-800 text-white'
+                  : item.highlight
+                  ? 'bg-gradient-to-r from-purple-600/10 to-pink-600/10 text-purple-300 hover:from-purple-600/20 hover:to-pink-600/20 border border-purple-500/30'
                   : 'text-slate-300 hover:bg-slate-800/50'
               }`}
             >
               <Icon size={20} />
               <span className="text-sm font-medium">{item.label}</span>
+              {item.highlight && !isActive && (
+                <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  NEW
+                </span>
+              )}
+              {item.highlight && isActive && (
+                <span className="ml-auto">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                  </span>
+                </span>
+              )}
             </Link>
           )
         })}

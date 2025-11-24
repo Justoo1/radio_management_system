@@ -36,28 +36,44 @@ export const programSchema = z.object({
     .optional()
     .or(z.literal('')),
   isActive: z.boolean().optional(),
+  status: z.enum(['DRAFT', 'SCHEDULED', 'LIVE', 'ARCHIVED', 'CANCELLED']).optional(),
 })
 
 export type ProgramInput = z.infer<typeof programSchema>
 
 // Program Schedule Schema
-export const programScheduleSchema = z.object({
-  dayOfWeek: z
-    .number()
-    .min(0, 'Invalid day of week')
-    .max(6, 'Invalid day of week'),
-  startTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
-  endTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
-  isRecurring: z.boolean().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  isActive: z.boolean().optional(),
-  notes: z.string().optional(),
-})
+export const programScheduleSchema = z
+  .object({
+    dayOfWeek: z
+      .number()
+      .min(0, 'Invalid day of week')
+      .max(6, 'Invalid day of week'),
+    startTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
+    endTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
+    isRecurring: z.boolean().optional(),
+    startDate: z.string().datetime().optional(),
+    endDate: z.string().datetime().optional(),
+    isActive: z.boolean().optional(),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Validate that endTime is after startTime
+      const [startHour, startMin] = data.startTime.split(':').map(Number)
+      const [endHour, endMin] = data.endTime.split(':').map(Number)
+      const startTotalMins = startHour * 60 + startMin
+      const endTotalMins = endHour * 60 + endMin
+      return endTotalMins > startTotalMins
+    },
+    {
+      message: 'End time must be after start time',
+      path: ['endTime'],
+    }
+  )
 
 export type ProgramScheduleInput = z.infer<typeof programScheduleSchema>
 

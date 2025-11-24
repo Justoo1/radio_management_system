@@ -12,67 +12,86 @@ datasource db {
 // ============================================
 
 model Organization {
-  id              String    @id @default(cuid())
-  name            String
-  slug            String    @unique // URL-friendly identifier (e.g., "joy-fm")
-  subdomain       String?   @unique // Optional custom subdomain
-  
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique // URL-friendly identifier (e.g., "joy-fm")
+  subdomain String? @unique // Optional custom subdomain
+
   // Business Information
-  email           String
-  phone           String?
-  address         String?
-  city            String?
-  region          String?
-  country         String    @default("Ghana")
-  website         String?
-  logo            String?
-  
+  email   String
+  phone   String?
+  address String?
+  city    String?
+  region  String?
+  country String  @default("Ghana")
+  website String?
+  logo    String?
+
   // Registration & Business Details
-  businessType    BusinessType @default(RADIO_STATION)
+  businessType       BusinessType @default(RADIO_STATION)
   registrationNumber String?
-  taxId           String?
-  
+  taxId              String?
+
   // Subscription & Status
-  subscriptionId  String?   @unique
-  subscription    Subscription? @relation(fields: [subscriptionId], references: [id])
-  status          OrganizationStatus @default(TRIAL)
-  
+  subscriptionId String?            @unique
+  subscription   Subscription?      @relation(fields: [subscriptionId], references: [id])
+  status         OrganizationStatus @default(TRIAL)
+
   // Trial Management
-  trialStartDate  DateTime  @default(now())
-  trialEndDate    DateTime  // Auto-set to 7 days from creation
-  isTrialUsed     Boolean   @default(false)
-  
+  trialStartDate DateTime @default(now())
+  trialEndDate   DateTime // Auto-set to 7 days from creation
+  isTrialUsed    Boolean  @default(false)
+
   // Feature Limits (based on plan)
-  maxUsers        Int       @default(5)
-  maxClients      Int       @default(100)
-  maxSMSPerMonth  Int       @default(500)
-  maxStorageGB    Int       @default(5)
-  
+  maxUsers       Int @default(5)
+  maxClients     Int @default(100)
+  maxSMSPerMonth Int @default(500)
+  maxStorageGB   Int @default(5)
+
   // Owner
-  ownerId         String?   @unique
-  owner           User?     @relation("OrganizationOwner", fields: [ownerId], references: [id])
-  
+  ownerId String? @unique
+  owner   User?   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+
   // Relations
-  users           User[]    @relation("OrganizationUsers")
-  roles           Role[]
-  clients         Client[]
-  programs        Program[]
-  smsCampaigns    SMSCampaign[]
-  smsTemplates    SMSTemplate[] @relation("OrganizationSMSTemplates")
-  mediaFiles      MediaFile[]
-  adCampaigns     AdCampaign[]
-  contracts       Contract[]
-  invoices        Invoice[]
-  expenses        Expense[] @relation("OrganizationExpenses")
-  communications  Communication[]
-  activityLogs    ActivityLog[]
-  metrics         Metric[] @relation("OrganizationMetrics")
-  settings        OrganizationSetting[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  suspendedAt     DateTime?
-  deletedAt       DateTime? // Soft delete
+  users          User[]                @relation("OrganizationUsers")
+  roles          Role[]
+  teams          Team[]                @relation("OrganizationTeams")
+  clients        Client[]
+  programs       Program[]
+  smsCampaigns   SMSCampaign[]
+  smsTemplates   SMSTemplate[]         @relation("OrganizationSMSTemplates")
+  mediaFiles     MediaFile[]
+  adCampaigns    AdCampaign[]
+  contracts      Contract[]
+  invoices       Invoice[]
+  expenses       Expense[]             @relation("OrganizationExpenses")
+  communications Communication[]
+  activityLogs   ActivityLog[]
+  metrics        Metric[]              @relation("OrganizationMetrics")
+  settings       OrganizationSetting[]
+
+  // Live On-Air
+  onAirNow         OnAirNow?
+  onAirQueue       OnAirQueue[]
+  songs            Song[]
+  instantAudios    InstantAudio[]
+  listenerRequests ListenerRequest[]
+  showNotes        ShowNote[]
+  playlists        Playlist[]
+  songPlayHistory  SongPlayHistory[]
+
+  // Analytics
+  listenerSessions ListenerSession[]
+  listenerMetrics  ListenerMetrics[]
+
+  // WhatsApp
+  whatsappAccount  WhatsAppAccount?
+  whatsappMessages WhatsAppMessage[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  suspendedAt DateTime?
+  deletedAt   DateTime? // Soft delete
 
   @@index([slug])
   @@index([status])
@@ -81,11 +100,11 @@ model Organization {
 }
 
 enum OrganizationStatus {
-  TRIAL           // 7-day trial period
-  ACTIVE          // Paid and active
-  SUSPENDED       // Payment failed or overdue
-  CANCELLED       // Subscription cancelled
-  EXPIRED         // Trial expired without payment
+  TRIAL // 7-day trial period
+  ACTIVE // Paid and active
+  SUSPENDED // Payment failed or overdue
+  CANCELLED // Subscription cancelled
+  EXPIRED // Trial expired without payment
 }
 
 enum BusinessType {
@@ -100,31 +119,31 @@ enum BusinessType {
 // ============================================
 
 model Subscription {
-  id              String    @id @default(cuid())
-  organization    Organization?
-  
-  planId          String
-  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
-  
-  status          SubscriptionStatus @default(TRIALING)
-  
+  id           String        @id @default(cuid())
+  organization Organization?
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  status SubscriptionStatus @default(TRIALING)
+
   // Billing Period
   currentPeriodStart DateTime @default(now())
   currentPeriodEnd   DateTime
-  
+
   // Cancellation
-  cancelAtPeriodEnd Boolean @default(false)
+  cancelAtPeriodEnd Boolean   @default(false)
   cancelledAt       DateTime?
-  
+
   // Payment tracking
-  lastPaymentDate   DateTime?
-  nextPaymentDate   DateTime?
-  
+  lastPaymentDate DateTime?
+  nextPaymentDate DateTime?
+
   // Relations
-  payments          SubscriptionPayment[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  payments SubscriptionPayment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([planId])
   @@index([status])
@@ -132,43 +151,43 @@ model Subscription {
 }
 
 enum SubscriptionStatus {
-  TRIALING        // 7-day trial
-  ACTIVE          // Paid subscription
-  PAST_DUE        // Payment failed, grace period
-  CANCELLED       // User cancelled
-  EXPIRED         // Trial or subscription ended
+  TRIALING // 7-day trial
+  ACTIVE // Paid subscription
+  PAST_DUE // Payment failed, grace period
+  CANCELLED // User cancelled
+  EXPIRED // Trial or subscription ended
 }
 
 model SubscriptionPlan {
-  id              String    @id @default(cuid())
-  name            String    @unique // e.g., "Starter", "Professional", "Enterprise"
-  description     String?   @db.Text
-  
+  id          String  @id @default(cuid())
+  name        String  @unique // e.g., "Starter", "Professional", "Enterprise"
+  description String? @db.Text
+
   // Pricing
-  price           Decimal   @db.Decimal(10, 2) // Monthly price in GHS
-  currency        String    @default("GHS")
+  price           Decimal         @db.Decimal(10, 2) // Monthly price in GHS
+  currency        String          @default("GHS")
   billingInterval BillingInterval @default(MONTHLY)
-  
+
   // Feature Limits
-  maxUsers        Int       @default(5)
-  maxClients      Int       @default(100)
-  maxSMSPerMonth  Int       @default(500)
-  maxStorageGB    Int       @default(5)
-  maxPrograms     Int       @default(50)
-  
+  maxUsers       Int @default(5)
+  maxClients     Int @default(100)
+  maxSMSPerMonth Int @default(500)
+  maxStorageGB   Int @default(5)
+  maxPrograms    Int @default(50)
+
   // Features
-  features        String    @db.Text // JSON array of features
-  
+  features String @db.Text // JSON array of features
+
   // Display
-  isPopular       Boolean   @default(false)
-  sortOrder       Int       @default(0)
-  isActive        Boolean   @default(true)
-  
+  isPopular Boolean @default(false)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
   // Relations
-  subscriptions   Subscription[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("subscription_plans")
 }
@@ -180,43 +199,43 @@ enum BillingInterval {
 }
 
 model SubscriptionPayment {
-  id              String    @id @default(cuid())
-  subscriptionId  String
-  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
-  
-  amount          Decimal   @db.Decimal(10, 2)
-  currency        String    @default("GHS")
-  
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("GHS")
+
   // Payment Details
-  status          PaymentStatus @default(PENDING)
-  paymentMethod   PaymentMethodType
-  provider        PaymentProvider // HUBTEL or STRIPE
-  
+  status        PaymentStatus     @default(PENDING)
+  paymentMethod PaymentMethodType
+  provider      PaymentProvider // HUBTEL or STRIPE
+
   // Provider References
-  providerPaymentId   String?   @unique // Hubtel transaction ID or Stripe payment intent ID
-  providerCustomerId  String?   // For Stripe customer ID
-  
+  providerPaymentId  String? @unique // Hubtel transaction ID or Stripe payment intent ID
+  providerCustomerId String? // For Stripe customer ID
+
   // Hubtel Specific
-  mobileNumber    String?   // For mobile money payments
-  network         MobileMoneyNetwork?
-  
+  mobileNumber String? // For mobile money payments
+  network      MobileMoneyNetwork?
+
   // Stripe Specific
   stripePaymentIntentId String?
-  stripeInvoiceId String?
-  
+  stripeInvoiceId       String?
+
   // Metadata
-  description     String?
-  metadata        String?   @db.Text // JSON for additional data
-  
+  description String?
+  metadata    String? @db.Text // JSON for additional data
+
   // Tracking
-  attemptCount    Int       @default(1)
-  failureReason   String?   @db.Text
-  
-  paidAt          DateTime?
-  failedAt        DateTime?
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  attemptCount  Int     @default(1)
+  failureReason String? @db.Text
+
+  paidAt   DateTime?
+  failedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([subscriptionId])
   @@index([status])
@@ -256,42 +275,52 @@ enum MobileMoneyNetwork {
 // ============================================
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String     @id @default(cuid())
+  email         String     @unique
   emailVerified DateTime?
   password      String // Hashed password
   name          String?
   phone         String?
   image         String?
   status        UserStatus @default(ACTIVE)
-  
+
   // Multi-tenant relationship
   organizationId String
   organization   Organization @relation("OrganizationUsers", fields: [organizationId], references: [id], onDelete: Cascade)
-  
+
   // Organization ownership (only one user per org)
   ownedOrganization Organization? @relation("OrganizationOwner")
-  
+
   // Role within the organization
-  roleId        String
-  role          Role      @relation(fields: [roleId], references: [id])
-  
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
   // Invitation tracking (for team members)
-  invitedById   String?
-  invitedAt     DateTime?
-  acceptedAt    DateTime?
-  
+  invitedById String?
+  invitedAt   DateTime?
+  acceptedAt  DateTime?
+
   // Relations
-  accounts      Account[]
-  sessions      Session[]
-  programs      Program[] @relation("ProgramHost")
-  mediaFiles    MediaFile[]
-  smsCampaigns  SMSCampaign[]
-  createdClients Client[] @relation("CreatedBy")
-  activityLogs  ActivityLog[]
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  programs       Program[]     @relation("ProgramHost")
+  mediaFiles     MediaFile[]
+  smsCampaigns   SMSCampaign[]
+  createdClients Client[]      @relation("CreatedBy")
+  activityLogs   ActivityLog[]
+
+  // Team Relations
+  teamsLed       Team[]        @relation("TeamLead")
+  teamsCreated   Team[]        @relation("CreatedTeam")
+  teamMembers    TeamMember[]  @relation("TeamMember")
+
+  // Live On-Air
+  onAirSessions OnAirNow[]        @relation("OnAirPresenter")
+  showNotes     ShowNote[]        @relation("ShowNotePresenter")
+  songPlays     SongPlayHistory[] @relation("SongPlayPresenter")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([email, organizationId])
   @@index([email])
@@ -299,7 +328,6 @@ model User {
   @@index([roleId])
   @@map("users")
 }
-
 
 enum UserStatus {
   ACTIVE
@@ -354,21 +382,21 @@ model VerificationToken {
 // ============================================
 
 model Role {
-  id             String   @id @default(cuid())
-  name           String   // e.g., OWNER, ADMIN, PROGRAM_MANAGER, SALES_MANAGER, HOST, VIEWER
-  displayName    String   // User-friendly name
-  description    String?
-  
+  id          String  @id @default(cuid())
+  name        String // e.g., OWNER, ADMIN, PROGRAM_MANAGER, SALES_MANAGER, HOST, VIEWER
+  displayName String // User-friendly name
+  description String?
+
   // Multi-tenant - Roles are scoped to organizations
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  isSystemRole   Boolean  @default(false) // true for default roles (OWNER, ADMIN)
-  permissions    Permission[]
-  users          User[]
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  isSystemRole Boolean      @default(false) // true for default roles (OWNER, ADMIN)
+  permissions  Permission[]
+  users        User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([name, organizationId])
   @@index([organizationId])
@@ -376,18 +404,114 @@ model Role {
 }
 
 model Permission {
-  id          String   @id @default(cuid())
-  name        String   @unique // e.g., "clients.create", "programs.edit", "sms.send"
-  resource    String   // e.g., "clients", "programs", "sms"
-  action      String   // e.g., "create", "read", "update", "delete"
+  id          String  @id @default(cuid())
+  name        String  @unique // e.g., "clients.create", "programs.edit", "sms.send"
+  resource    String // e.g., "clients", "programs", "sms"
+  action      String // e.g., "create", "read", "update", "delete"
   description String?
   roles       Role[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([resource, action])
   @@map("permissions")
+}
+
+// ============================================
+// TEAM MANAGEMENT (Organization-Scoped)
+// ============================================
+
+model Team {
+  id             String  @id @default(cuid())
+  organizationId String
+  organization   Organization @relation("OrganizationTeams", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String
+  description    String? @db.Text
+
+  // Team type: PROGRAM_TEAM, ENGINEERING, SALES, OPERATIONS, etc.
+  teamType       TeamType
+
+  // Team lead (usually a user with TEAM_LEAD role)
+  teamLeadId     String?
+  teamLead       User?   @relation("TeamLead", fields: [teamLeadId], references: [id], onDelete: SetNull)
+
+  // Who created this team
+  createdById    String
+  createdBy      User    @relation("CreatedTeam", fields: [createdById], references: [id])
+
+  // Status
+  status         TeamStatus @default(ACTIVE)
+  isActive       Boolean    @default(true)
+
+  // Relations
+  members        TeamMember[]
+  programs       Program[] @relation("TeamPrograms")
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+  @@index([teamLeadId])
+  @@index([teamType])
+  @@index([status])
+  @@map("teams")
+}
+
+enum TeamType {
+  PROGRAM_TEAM
+  ENGINEERING
+  SALES
+  OPERATIONS
+  MARKETING
+  CONTENT
+  MANAGEMENT
+  OTHER
+}
+
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+model TeamMember {
+  id       String @id @default(cuid())
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  userId   String
+  user     User   @relation("TeamMember", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Role within team (different from organization role)
+  role     TeamMemberRole @default(MEMBER)
+
+  // Responsibility
+  title    String? // e.g., "Producer", "Sound Engineer", "Host"
+  bio      String? @db.Text
+
+  // When joined
+  joinedAt DateTime @default(now())
+
+  // Can manage team?
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+enum TeamMemberRole {
+  LEAD
+  MANAGER
+  MEMBER
+  VIEWER
 }
 
 // ============================================
@@ -395,41 +519,41 @@ model Permission {
 // ============================================
 
 model Client {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  email           String?
-  phone           String?
-  alternatePhone  String?
-  address         String?
-  city            String?
-  region          String?
-  website         String?
-  
-  categoryId      String?
-  category        ClientCategory? @relation(fields: [categoryId], references: [id])
-  
-  taxId           String?   // TIN or VAT number
-  registrationNo  String?   // Business registration number
-  notes           String?   @db.Text
-  status          ClientStatus @default(ACTIVE)
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String
+  email          String?
+  phone          String?
+  alternatePhone String?
+  address        String?
+  city           String?
+  region         String?
+  website        String?
+
+  categoryId String?
+  category   ClientCategory? @relation(fields: [categoryId], references: [id])
+
+  taxId          String? // TIN or VAT number
+  registrationNo String? // Business registration number
+  notes          String?      @db.Text
+  status         ClientStatus @default(ACTIVE)
+
   // Relations
-  contactPersons  ContactPerson[]
-  contracts       Contract[]
-  adCampaigns     AdCampaign[]
-  invoices        Invoice[]
-  communications  Communication[]
-  
+  contactPersons ContactPerson[]
+  contracts      Contract[]
+  adCampaigns    AdCampaign[]
+  invoices       Invoice[]
+  communications Communication[]
+
   // Audit fields
-  createdById     String
-  createdBy       User      @relation("CreatedBy", fields: [createdById], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdById String
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@unique([email, organizationId]) // Email unique per organization
   @@index([organizationId])
@@ -450,29 +574,29 @@ model ClientCategory {
   id          String   @id @default(cuid())
   name        String   @unique // e.g., "Advertiser", "Sponsor", "Partner", "Government", "Corporate"
   description String?
-  color       String?  // For UI display
+  color       String? // For UI display
   clients     Client[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("client_categories")
 }
 
 model ContactPerson {
-  id          String   @id @default(cuid())
-  clientId    String
-  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  name        String
-  position    String?  // e.g., "Marketing Manager", "CEO"
-  email       String?
-  phone       String?
-  isPrimary   Boolean  @default(false)
-  notes       String?  @db.Text
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id       String @id @default(cuid())
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name      String
+  position  String? // e.g., "Marketing Manager", "CEO"
+  email     String?
+  phone     String?
+  isPrimary Boolean @default(false)
+  notes     String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([clientId])
   @@map("contact_persons")
@@ -483,61 +607,87 @@ model ContactPerson {
 // ============================================
 
 model Program {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  description     String?   @db.Text
-  genre           String?   // e.g., "News", "Music", "Talk Show", "Sports"
-  language        String?   // e.g., "English", "Twi", "Ga"
-  targetAudience  String?   // e.g., "Youth", "Adults", "General"
-  
-  duration        Int       // Duration in minutes
-  isActive        Boolean   @default(true)
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String
+  description    String? @db.Text
+  genre          String? // e.g., "News", "Music", "Talk Show", "Sports"
+  language       String? // e.g., "English", "Twi", "Ga"
+  targetAudience String? // e.g., "Youth", "Adults", "General"
+
+  duration Int // Duration in minutes
+  isActive Boolean @default(true)
+
+  // Program Status/Lifecycle
+  status ProgramStatus @default(DRAFT)
+
   // Host/Presenter
-  hostId          String?
-  host            User?     @relation("ProgramHost", fields: [hostId], references: [id])
-  coHosts         String?   // JSON array of co-host names
-  
+  hostId  String?
+  host    User?   @relation("ProgramHost", fields: [hostId], references: [id])
+  coHosts String? // JSON array of co-host names
+
+  // Team Management
+  teamId  String?
+  team    Team?   @relation("TeamPrograms", fields: [teamId], references: [id], onDelete: SetNull)
+
   // Media
-  thumbnailUrl    String?
-  promoAudioUrl   String?
-  
+  thumbnailUrl  String?
+  promoAudioUrl String?
+
   // Relations
-  schedules       ProgramSchedule[]
-  episodes        ProgramEpisode[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  schedules ProgramSchedule[]
+  episodes  ProgramEpisode[]
+
+  // Live On-Air
+  onAirSessions    OnAirNow[]
+  queueItems       OnAirQueue[]
+  listenerRequests ListenerRequest[]
+  showNotes        ShowNote[]
+  songPlayHistory  SongPlayHistory[]
+  listenerSessions ListenerSession[]
+  listenerMetrics  ListenerMetrics[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([hostId])
+  @@index([teamId])
   @@index([isActive])
+  @@index([status])
   @@map("programs")
 }
 
+enum ProgramStatus {
+  DRAFT // Planning stage, not yet scheduled
+  SCHEDULED // Scheduled for broadcast
+  LIVE // Currently broadcasting
+  ARCHIVED // Past broadcasts
+  CANCELLED // Cancelled/not airing
+}
+
 model ProgramSchedule {
-  id          String   @id @default(cuid())
-  programId   String
-  program     Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
-  
-  dayOfWeek   Int      // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  startTime   String   // Format: "HH:MM" (24-hour format)
-  endTime     String   // Format: "HH:MM" (24-hour format)
-  
-  isRecurring Boolean  @default(true)
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  dayOfWeek Int // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime String // Format: "HH:MM" (24-hour format)
+  endTime   String // Format: "HH:MM" (24-hour format)
+
+  isRecurring Boolean   @default(true)
   startDate   DateTime?
   endDate     DateTime?
-  
-  isActive    Boolean  @default(true)
-  notes       String?  @db.Text
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+
+  isActive Boolean @default(true)
+  notes    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([programId])
   @@index([dayOfWeek])
@@ -546,28 +696,28 @@ model ProgramSchedule {
 }
 
 model ProgramEpisode {
-  id              String    @id @default(cuid())
-  programId       String
-  program         Program   @relation(fields: [programId], references: [id], onDelete: Cascade)
-  
-  episodeNumber   Int?
-  title           String
-  description     String?   @db.Text
-  
-  airDate         DateTime
-  duration        Int?      // Duration in minutes
-  
-  audioFileUrl    String?
-  transcript      String?   @db.Text
-  
-  guestNames      String?   // JSON array of guest names
-  topics          String?   // JSON array of topics discussed
-  
-  status          EpisodeStatus @default(SCHEDULED)
-  notes           String?   @db.Text
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id        String  @id @default(cuid())
+  programId String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  episodeNumber Int?
+  title         String
+  description   String? @db.Text
+
+  airDate  DateTime
+  duration Int? // Duration in minutes
+
+  audioFileUrl String?
+  transcript   String? @db.Text
+
+  guestNames String? // JSON array of guest names
+  topics     String? // JSON array of topics discussed
+
+  status EpisodeStatus @default(SCHEDULED)
+  notes  String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([programId])
   @@index([airDate])
@@ -587,49 +737,49 @@ enum EpisodeStatus {
 // ============================================
 
 model SMSCampaign {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  description     String?   @db.Text
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String? @db.Text
+
   // Message content
-  templateId      String?
-  template        SMSTemplate? @relation(fields: [templateId], references: [id])
-  messageContent  String    @db.Text
-  
+  templateId     String?
+  template       SMSTemplate? @relation(fields: [templateId], references: [id])
+  messageContent String       @db.Text
+
   // Targeting
   recipientType   RecipientType // ALL, CATEGORY, CUSTOM, IMPORTED
-  recipientFilter String?   // JSON filter criteria
-  totalRecipients Int       @default(0)
-  
+  recipientFilter String? // JSON filter criteria
+  totalRecipients Int           @default(0)
+
   // Scheduling
   scheduledAt     DateTime?
   sendImmediately Boolean   @default(false)
-  
+
   // Status tracking
-  status          CampaignStatus @default(DRAFT)
-  sentCount       Int       @default(0)
-  deliveredCount  Int       @default(0)
-  failedCount     Int       @default(0)
-  
+  status         CampaignStatus @default(DRAFT)
+  sentCount      Int            @default(0)
+  deliveredCount Int            @default(0)
+  failedCount    Int            @default(0)
+
   // Cost tracking
-  estimatedCost   Decimal?  @db.Decimal(10, 2)
-  actualCost      Decimal?  @db.Decimal(10, 2)
-  
+  estimatedCost Decimal? @db.Decimal(10, 2)
+  actualCost    Decimal? @db.Decimal(10, 2)
+
   // Relations
-  messages        SMSMessage[]
-  
+  messages SMSMessage[]
+
   // Audit
-  createdById     String
-  createdBy       User      @relation(fields: [createdById], references: [id])
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  sentAt          DateTime?
-  completedAt     DateTime?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  sentAt      DateTime?
+  completedAt DateTime?
 
   @@index([organizationId])
   @@index([status])
@@ -639,10 +789,10 @@ model SMSCampaign {
 }
 
 enum RecipientType {
-  ALL           // All clients
-  CATEGORY      // By client category
-  CUSTOM        // Custom selection
-  IMPORTED      // CSV import
+  ALL // All clients
+  CATEGORY // By client category
+  CUSTOM // Custom selection
+  IMPORTED // CSV import
 }
 
 enum CampaignStatus {
@@ -656,29 +806,29 @@ enum CampaignStatus {
 }
 
 model SMSMessage {
-  id              String    @id @default(cuid())
-  campaignId      String?
-  campaign        SMSCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  
-  recipient       String    // Phone number
-  recipientName   String?
-  message         String    @db.Text
-  
+  id         String       @id @default(cuid())
+  campaignId String?
+  campaign   SMSCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  recipient     String // Phone number
+  recipientName String?
+  message       String  @db.Text
+
   // Status tracking
-  status          MessageStatus @default(PENDING)
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  
+  status      MessageStatus @default(PENDING)
+  sentAt      DateTime?
+  deliveredAt DateTime?
+
   // Gateway response
   gatewayMessageId String?
-  gatewayResponse  String?  @db.Text
-  errorMessage    String?   @db.Text
-  
+  gatewayResponse  String? @db.Text
+  errorMessage     String? @db.Text
+
   // Cost
-  cost            Decimal?  @db.Decimal(10, 4)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  cost Decimal? @db.Decimal(10, 4)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([campaignId])
   @@index([status])
@@ -697,40 +847,40 @@ enum MessageStatus {
 }
 
 model SMSTemplate {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation("OrganizationSMSTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation("OrganizationSMSTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name        String
-  content     String   @db.Text
-  category    String?  // e.g., "Promotional", "Notification", "Reminder"
-  variables   String?  // JSON array of available variables like {name}, {date}
+  name      String
+  content   String  @db.Text
+  category  String? // e.g., "Promotional", "Notification", "Reminder"
+  variables String? // JSON array of available variables like {name}, {date}
 
-  campaigns   SMSCampaign[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  campaigns SMSCampaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("sms_templates")
 }
 
 model SMSCredit {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship - Each org has its own SMS credit balance
-  organizationId  String    @unique
-  
-  balance         Int       @default(0)
-  totalPurchased  Int       @default(0)
-  totalUsed       Int       @default(0)
-  
-  lastPurchaseDate    DateTime?
-  lastPurchaseAmount  Int?
-  lastPurchaseCost    Decimal?  @db.Decimal(10, 2)
-  
-  updatedAt       DateTime  @updatedAt
+  organizationId String @unique
+
+  balance        Int @default(0)
+  totalPurchased Int @default(0)
+  totalUsed      Int @default(0)
+
+  lastPurchaseDate   DateTime?
+  lastPurchaseAmount Int?
+  lastPurchaseCost   Decimal?  @db.Decimal(10, 2)
+
+  updatedAt DateTime @updatedAt
 
   @@map("sms_credits")
 }
@@ -740,42 +890,42 @@ model SMSCredit {
 // ============================================
 
 model MediaFile {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  originalName    String
-  description     String?   @db.Text
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name         String
+  originalName String
+  description  String? @db.Text
+
   // File details
-  type            MediaType
-  mimeType        String
-  size            Int       // Size in bytes
-  duration        Int?      // Duration in seconds (for audio/video)
-  url             String
-  thumbnailUrl    String?
-  
+  type         MediaType
+  mimeType     String
+  size         Int // Size in bytes
+  duration     Int? // Duration in seconds (for audio/video)
+  url          String
+  thumbnailUrl String?
+
   // Categorization
-  category        String?   // e.g., "Jingle", "Ad", "Episode", "Promo"
-  tags            String?   // JSON array of tags
-  
+  category String? // e.g., "Jingle", "Ad", "Episode", "Promo"
+  tags     String? // JSON array of tags
+
   // Metadata
-  uploadedById    String
-  uploadedBy      User      @relation(fields: [uploadedById], references: [id])
-  uploadedAt      DateTime  @default(now())
-  
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
   // Usage tracking
-  usageCount      Int       @default(0)
-  lastUsedAt      DateTime?
-  
+  usageCount Int       @default(0)
+  lastUsedAt DateTime?
+
   // Relations
-  advertisements  Advertisement[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  advertisements Advertisement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([type])
@@ -796,31 +946,31 @@ enum MediaType {
 // ============================================
 
 model AdCampaign {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name            String
-  description     String?   @db.Text
-  
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  
-  startDate       DateTime
-  endDate         DateTime
-  
-  budget          Decimal?  @db.Decimal(10, 2)
-  actualSpent     Decimal?  @db.Decimal(10, 2)
-  
-  status          AdCampaignStatus @default(PENDING)
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String? @db.Text
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  startDate DateTime
+  endDate   DateTime
+
+  budget      Decimal? @db.Decimal(10, 2)
+  actualSpent Decimal? @db.Decimal(10, 2)
+
+  status AdCampaignStatus @default(PENDING)
+
   // Relations
-  advertisements  Advertisement[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  advertisements Advertisement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([clientId])
@@ -838,25 +988,25 @@ enum AdCampaignStatus {
 }
 
 model Advertisement {
-  id              String    @id @default(cuid())
-  campaignId      String
-  campaign        AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  
-  title           String
-  description     String?   @db.Text
-  duration        Int       // Duration in seconds
-  
-  mediaFileId     String?
-  mediaFile       MediaFile? @relation(fields: [mediaFileId], references: [id])
-  
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String? @db.Text
+  duration    Int // Duration in seconds
+
+  mediaFileId String?
+  mediaFile   MediaFile? @relation(fields: [mediaFileId], references: [id])
+
   // Scheduling
-  slots           AdSlot[]
-  totalPlays      Int       @default(0)
-  
-  status          AdStatus  @default(ACTIVE)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  slots      AdSlot[]
+  totalPlays Int      @default(0)
+
+  status AdStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([campaignId])
   @@index([status])
@@ -870,20 +1020,20 @@ enum AdStatus {
 }
 
 model AdSlot {
-  id              String    @id @default(cuid())
+  id              String        @id @default(cuid())
   advertisementId String
   advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
-  
-  scheduledDate   DateTime
-  scheduledTime   String    // Format: "HH:MM"
-  
-  wasPlayed       Boolean   @default(false)
-  playedAt        DateTime?
-  
-  notes           String?   @db.Text
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+
+  scheduledDate DateTime
+  scheduledTime String // Format: "HH:MM"
+
+  wasPlayed Boolean   @default(false)
+  playedAt  DateTime?
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([advertisementId])
   @@index([scheduledDate])
@@ -896,38 +1046,38 @@ model AdSlot {
 // ============================================
 
 model Contract {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  contractNumber  String
-  
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  
-  title           String
-  description     String?   @db.Text
-  
-  startDate       DateTime
-  endDate         DateTime
-  
-  value           Decimal   @db.Decimal(10, 2)
-  terms           String?   @db.Text
-  
-  status          ContractStatus @default(DRAFT)
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  contractNumber String
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  title       String
+  description String? @db.Text
+
+  startDate DateTime
+  endDate   DateTime
+
+  value Decimal @db.Decimal(10, 2)
+  terms String? @db.Text
+
+  status ContractStatus @default(DRAFT)
+
   // File attachments
-  documentUrl     String?
+  documentUrl       String?
   signedDocumentUrl String?
-  
+
   // Relations
-  invoices        Invoice[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  signedAt        DateTime?
+  invoices Invoice[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  signedAt  DateTime?
 
   @@unique([contractNumber, organizationId])
   @@index([organizationId])
@@ -945,39 +1095,39 @@ enum ContractStatus {
 }
 
 model Invoice {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  invoiceNumber   String
-  
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id])
-  
-  contractId      String?
-  contract        Contract? @relation(fields: [contractId], references: [id])
-  
-  issueDate       DateTime  @default(now())
-  dueDate         DateTime
-  
-  subtotal        Decimal   @db.Decimal(10, 2)
-  taxAmount       Decimal?  @db.Decimal(10, 2)
-  discount        Decimal?  @db.Decimal(10, 2)
-  totalAmount     Decimal   @db.Decimal(10, 2)
-  
-  status          InvoiceStatus @default(DRAFT)
-  
-  notes           String?   @db.Text
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invoiceNumber String
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+
+  issueDate DateTime @default(now())
+  dueDate   DateTime
+
+  subtotal    Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal? @db.Decimal(10, 2)
+  discount    Decimal? @db.Decimal(10, 2)
+  totalAmount Decimal  @db.Decimal(10, 2)
+
+  status InvoiceStatus @default(DRAFT)
+
+  notes String? @db.Text
+
   // Relations
-  items           InvoiceItem[]
-  payments        Payment[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  paidAt          DateTime?
+  items    InvoiceItem[]
+  payments Payment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  paidAt    DateTime?
 
   @@unique([invoiceNumber, organizationId])
   @@index([organizationId])
@@ -996,35 +1146,35 @@ enum InvoiceStatus {
 }
 
 model InvoiceItem {
-  id              String    @id @default(cuid())
-  invoiceId       String
-  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
-  description     String
-  quantity        Int       @default(1)
-  unitPrice       Decimal   @db.Decimal(10, 2)
-  amount          Decimal   @db.Decimal(10, 2)
-  
-  createdAt       DateTime  @default(now())
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  amount      Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
 
   @@index([invoiceId])
   @@map("invoice_items")
 }
 
 model Payment {
-  id              String    @id @default(cuid())
-  invoiceId       String
-  invoice         Invoice   @relation(fields: [invoiceId], references: [id])
-  
-  amount          Decimal   @db.Decimal(10, 2)
-  paymentDate     DateTime
-  paymentMethod   PaymentMethod
-  
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentDate   DateTime
+  paymentMethod PaymentMethod
+
   referenceNumber String?
-  notes           String?   @db.Text
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  notes           String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -1045,27 +1195,27 @@ enum PaymentMethod {
 // ============================================
 
 model Communication {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  clientId        String
-  client          Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  type            CommunicationType
-  subject         String?
-  message         String    @db.Text
-  
-  direction       CommunicationDirection // INBOUND or OUTBOUND
-  channel         CommunicationChannel
-  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  type    CommunicationType
+  subject String?
+  message String            @db.Text
+
+  direction CommunicationDirection // INBOUND or OUTBOUND
+  channel   CommunicationChannel
+
   // Metadata
-  attachments     String?   // JSON array of file URLs
-  metadata        String?   @db.Text // JSON for additional data
-  
-  createdAt       DateTime  @default(now())
+  attachments String? // JSON array of file URLs
+  metadata    String? @db.Text // JSON for additional data
+
+  createdAt DateTime @default(now())
 
   @@index([organizationId])
   @@index([clientId])
@@ -1103,26 +1253,26 @@ enum CommunicationChannel {
 // ============================================
 
 model ActivityLog {
-  id              String    @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  userId          String
-  user            User      @relation(fields: [userId], references: [id])
-  
-  action          String    // e.g., "CREATE", "UPDATE", "DELETE"
-  resource        String    // e.g., "Client", "Program", "SMSCampaign"
-  resourceId      String?
-  
-  description     String
-  metadata        String?   @db.Text // JSON with additional details
-  
-  ipAddress       String?
-  userAgent       String?
-  
-  createdAt       DateTime  @default(now())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  action     String // e.g., "CREATE", "UPDATE", "DELETE"
+  resource   String // e.g., "Client", "Program", "SMSCampaign"
+  resourceId String?
+
+  description String
+  metadata    String? @db.Text // JSON with additional details
+
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
 
   @@index([organizationId])
   @@index([userId])
@@ -1136,23 +1286,23 @@ model ActivityLog {
 // ============================================
 
 model Metric {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation("OrganizationMetrics", fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation("OrganizationMetrics", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  metricType      MetricType  // e.g., "CLIENTS_TOTAL", "PROGRAMS_ACTIVE", "SMS_SENT"
-  metricName      String      // Human-readable name
-  value           Decimal     @db.Decimal(10, 2)
+  metricType MetricType // e.g., "CLIENTS_TOTAL", "PROGRAMS_ACTIVE", "SMS_SENT"
+  metricName String // Human-readable name
+  value      Decimal    @db.Decimal(10, 2)
 
   // Date tracking for historical data
-  recordedDate    DateTime    @default(now())
+  recordedDate DateTime @default(now())
 
-  metadata        String?     @db.Text // JSON for additional data
+  metadata String? @db.Text // JSON for additional data
 
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([metricType])
@@ -1175,23 +1325,23 @@ enum MetricType {
 // ============================================
 
 model Expense {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation("OrganizationExpenses", fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation("OrganizationExpenses", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  category        String    // e.g., "Salary", "Rent", "Utilities", "Marketing"
-  description     String?   @db.Text
-  amount          Decimal   @db.Decimal(10, 2)
+  category    String // e.g., "Salary", "Rent", "Utilities", "Marketing"
+  description String? @db.Text
+  amount      Decimal @db.Decimal(10, 2)
 
-  expenseDate     DateTime
+  expenseDate DateTime
 
-  notes           String?   @db.Text
-  status          ExpenseStatus @default(RECORDED)
+  notes  String?       @db.Text
+  status ExpenseStatus @default(RECORDED)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
   @@index([category])
@@ -1212,21 +1362,648 @@ enum ExpenseStatus {
 // ============================================
 
 model OrganizationSetting {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
   // Multi-tenant relationship
-  organizationId  String
-  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  key             String
-  value           String    @db.Text
-  description     String?
-  category        String?   // e.g., "general", "sms", "email", "billing", "branding"
+  key         String
+  value       String  @db.Text
+  description String?
+  category    String? // e.g., "general", "sms", "email", "billing", "branding"
 
-  updatedAt       DateTime  @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@unique([key, organizationId])
   @@index([organizationId])
   @@index([category])
   @@map("organization_settings")
+}
+
+// ============================================
+// LIVE ON-AIR MANAGEMENT (Organization-Scoped)
+// ============================================
+
+// Current playing item
+model OnAirNow {
+  id             String       @id @default(cuid())
+  organizationId String       @unique // Only one item can be on-air per org
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // What's playing
+  itemType OnAirItemType // SONG, AD, JINGLE, SEGMENT, VOICETRACK
+  itemId   String? // Reference to Song, Advertisement, etc.
+  title    String
+  artist   String?
+  duration Int // Duration in seconds
+
+  // Timing
+  startedAt        DateTime @default(now())
+  endsAt           DateTime
+  remainingSeconds Int // Updated in real-time
+
+  // Metadata
+  thumbnailUrl String?
+  audioUrl     String?
+  notes        String? @db.Text
+
+  // Program context
+  programId   String?
+  program     Program? @relation(fields: [programId], references: [id])
+  presenterId String
+  presenter   User     @relation("OnAirPresenter", fields: [presenterId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@map("on_air_now")
+}
+
+enum OnAirItemType {
+  PROGRAM // Live broadcast program/show
+  SONG
+  AD
+  JINGLE
+  SEGMENT
+  VOICETRACK
+  TALK_BREAK
+  STATION_ID
+}
+
+// Queue of upcoming items
+model OnAirQueue {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Queue item details
+  itemType OnAirItemType
+  itemId   String? // Reference to Song, Advertisement, etc.
+  title    String
+  artist   String?
+  duration Int // Duration in seconds
+
+  // Queue position
+  position      Int // 1, 2, 3... (1 = next up)
+  scheduledTime DateTime? // Optional specific time to play
+
+  // Metadata
+  thumbnailUrl String?
+  audioUrl     String?
+  notes        String? @db.Text
+
+  // Status
+  status     QueueItemStatus @default(QUEUED)
+  playedAt   DateTime?
+  skippedAt  DateTime?
+  skipReason String?
+
+  // Program context
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id])
+
+  // Auto-play control
+  autoPlay Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, position])
+  @@index([organizationId, status])
+  @@map("on_air_queue")
+}
+
+enum QueueItemStatus {
+  QUEUED // Waiting to play
+  PLAYING // Currently playing
+  PLAYED // Completed
+  SKIPPED // Manually skipped
+  FAILED // Technical error
+}
+
+// Songs/Tracks library
+model Song {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Song details
+  title    String
+  artist   String
+  album    String?
+  genre    String?
+  language String?
+
+  // Audio file
+  audioUrl String
+  duration Int // Duration in seconds
+  fileSize Int? // Size in bytes
+
+  // Metadata
+  releaseYear  Int?
+  isrc         String? // International Standard Recording Code
+  thumbnailUrl String?
+
+  // Categorization
+  mood  String? // Happy, Sad, Energetic, Calm, etc.
+  tempo String? // Slow, Medium, Fast
+  era   String? // 80s, 90s, 2000s, Current
+
+  // Rotation category
+  rotation SongRotation @default(MEDIUM)
+
+  // Play tracking
+  totalPlays   Int       @default(0)
+  lastPlayedAt DateTime?
+
+  // Restrictions
+  isExplicit Boolean @default(false)
+  isActive   Boolean @default(true)
+
+  // Time-of-day restrictions (JSON)
+  playRestrictions String? @db.Text // {"allowedHours": [6-22], "blockedDays": []}
+
+  // Tags
+  tags String? // JSON array of custom tags
+
+  // Relations
+  playHistory   SongPlayHistory[]
+  playlistSongs PlaylistSong[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([artist])
+  @@index([genre])
+  @@index([rotation])
+  @@index([lastPlayedAt])
+  @@map("songs")
+}
+
+enum SongRotation {
+  POWER // High rotation - play frequently
+  MEDIUM // Medium rotation
+  LIGHT // Light rotation - play occasionally
+  GOLD // Oldies/classics
+  RECURRENT // Former hits, still popular
+}
+
+// Instant play buttons (jingles, sound effects, station IDs)
+model InstantAudio {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  // Audio file
+  audioUrl String
+  duration Int // Duration in seconds
+
+  // Type
+  type     InstantAudioType
+  category String? // e.g., "Sound Effects", "Station IDs"
+
+  // Display
+  buttonColor String? // Hex color for UI button
+  icon        String? // Icon name
+  position    Int // Order in dashboard (1, 2, 3...)
+
+  // Hotkey
+  hotkey String? // e.g., "F1", "Ctrl+1"
+
+  // Play tracking
+  totalPlays   Int       @default(0)
+  lastPlayedAt DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([position])
+  @@map("instant_audio")
+}
+
+enum InstantAudioType {
+  JINGLE
+  SOUND_EFFECT
+  STATION_ID
+  SWEEPER
+  PROMO
+  LINER
+}
+
+// Listener requests (SMS/WhatsApp)
+model ListenerRequest {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Requester info
+  listenerName  String?
+  listenerPhone String
+  listenerEmail String?
+
+  // Request details
+  requestType RequestType
+  songTitle   String? // For song requests
+  songArtist  String?
+  message     String?     @db.Text // Dedication or general message
+
+  // Source
+  source RequestSource // SMS, WHATSAPP, PHONE, WEBSITE
+
+  // Status
+  status RequestStatus @default(PENDING)
+
+  // Program context
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id])
+
+  // Actions
+  playedAt    DateTime?
+  readOnAirAt DateTime?
+
+  // Notes from presenter
+  presenterNotes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([listenerPhone])
+  @@index([createdAt])
+  @@map("listener_requests")
+}
+
+enum RequestType {
+  SONG_REQUEST
+  DEDICATION
+  SHOUTOUT
+  QUESTION
+  COMMENT
+  CONTEST_ENTRY
+}
+
+enum RequestSource {
+  SMS
+  WHATSAPP
+  PHONE
+  WEBSITE
+  MOBILE_APP
+  SOCIAL_MEDIA
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  PLAYED
+  READ_ON_AIR
+  REJECTED
+  SPAM
+}
+
+// Show notes for presenters
+model ShowNote {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Program context
+  programId   String?
+  program     Program? @relation(fields: [programId], references: [id])
+  presenterId String
+  presenter   User     @relation("ShowNotePresenter", fields: [presenterId], references: [id])
+
+  // Note details
+  noteType ShowNoteType
+  title    String?
+  content  String       @db.Text
+
+  // Timing
+  showDate   DateTime
+  timeMarker String? // e.g., "12:30 PM" - when to mention
+
+  // Status
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+
+  // Priority
+  priority NotePriority @default(NORMAL)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([presenterId])
+  @@index([showDate])
+  @@map("show_notes")
+}
+
+enum ShowNoteType {
+  REMINDER
+  TALKING_POINT
+  SPONSOR_READ
+  GUEST_INFO
+  CONTEST_DETAIL
+  WEATHER
+  TRAFFIC
+  NEWS_ITEM
+  TECHNICAL_NOTE
+}
+
+enum NotePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// Smart playlists
+model Playlist {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String? @db.Text
+
+  // Type
+  type PlaylistType
+
+  // Smart playlist rules (JSON)
+  rules String? @db.Text // {"genre": ["Pop", "Rock"], "rotation": ["POWER"]}
+
+  // Manual playlist songs
+  songs PlaylistSong[]
+
+  // Settings
+  shuffle       Boolean @default(false)
+  avoidRepeats  Boolean @default(true)
+  repeatMinutes Int     @default(120) // Don't repeat songs within X minutes
+
+  // Scheduling
+  timeRestrictions String? @db.Text // {"allowedHours": [6-22]}
+
+  // Usage
+  totalPlays Int       @default(0)
+  lastUsedAt DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@map("playlists")
+}
+
+enum PlaylistType {
+  MANUAL // Manually curated
+  SMART // Auto-generated based on rules
+  TIME_BASED // Morning, Afternoon, Evening
+  DAY_BASED // Monday Mix, Friday Favorites
+  MOOD_BASED // Upbeat, Chill, Energetic
+}
+
+model PlaylistSong {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  songId String
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  position Int // Order in playlist
+
+  addedAt DateTime @default(now())
+
+  @@unique([playlistId, songId])
+  @@index([playlistId, position])
+  @@map("playlist_songs")
+}
+
+// Song play history (for clash detection)
+model SongPlayHistory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  songId String
+  song   Song   @relation(fields: [songId], references: [id])
+
+  playedAt DateTime @default(now())
+
+  // Context
+  programId   String?
+  program     Program? @relation(fields: [programId], references: [id])
+  presenterId String?
+  presenter   User?    @relation("SongPlayPresenter", fields: [presenterId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId, playedAt])
+  @@index([songId, playedAt])
+  @@map("song_play_history")
+}
+
+// ============================================
+// LISTENER ANALYTICS (Organization-Scoped)
+// ============================================
+
+// Listener analytics
+model ListenerSession {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Session details
+  sessionId String  @unique
+  ipAddress String
+  userAgent String?
+
+  // Location (from IP)
+  country   String?
+  city      String?
+  latitude  Float?
+  longitude Float?
+
+  // Listening details
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  durationSeconds Int       @default(0)
+
+  // Platform
+  platform   ListenerPlatform
+  deviceType String? // Mobile, Desktop, Tablet
+
+  // Program context
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([startedAt])
+  @@index([programId])
+  @@map("listener_sessions")
+}
+
+enum ListenerPlatform {
+  WEB
+  MOBILE_APP
+  SMART_SPEAKER
+  CAR_RADIO
+  THIRD_PARTY
+}
+
+model ListenerMetrics {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Time bucket
+  timestamp DateTime
+  hour      Int // 0-23
+  dayOfWeek Int // 0-6
+
+  // Metrics
+  currentListeners Int @default(0)
+  peakListeners    Int @default(0)
+  totalSessions    Int @default(0)
+  avgDuration      Int @default(0) // seconds
+
+  // Engagement
+  songRequests     Int @default(0)
+  whatsappMessages Int @default(0)
+  smsMessages      Int @default(0)
+
+  // Program context
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([organizationId, timestamp])
+  @@index([organizationId])
+  @@index([timestamp])
+  @@map("listener_metrics")
+}
+
+// ============================================
+// WHATSAPP INTEGRATION (Organization-Scoped)
+// ============================================
+
+// WhatsApp Integration
+model WhatsAppAccount {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // API credentials
+  phoneNumberId     String // WhatsApp Business phone number ID
+  phoneNumber       String // Actual phone number
+  businessAccountId String
+
+  // Status
+  status     WhatsAppStatus @default(PENDING)
+  isVerified Boolean        @default(false)
+
+  // Limits
+  messagingLimit  String? // TIER_1K, TIER_10K, TIER_100K
+  monthlyMessages Int     @default(0)
+
+  // Webhook
+  webhookSecret String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("whatsapp_accounts")
+}
+
+enum WhatsAppStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DISCONNECTED
+}
+
+model WhatsAppMessage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Message details
+  whatsappMessageId String           @unique // WhatsApp's message ID
+  direction         MessageDirection
+
+  // Sender/Recipient
+  fromNumber  String
+  toNumber    String
+  contactName String?
+
+  // Content
+  messageType WhatsAppMessageType
+  text        String?             @db.Text
+  mediaUrl    String? // For images, audio, video
+  caption     String?
+
+  // Status
+  status    WhatsAppMessageStatus
+  timestamp DateTime
+
+  // Conversation context
+  conversationId   String?
+  isReply          Boolean @default(false)
+  replyToMessageId String?
+
+  // Processing
+  isProcessed     Boolean @default(false)
+  processedAs     String? // SONG_REQUEST, CONTEST_ENTRY, etc.
+  linkedRequestId String? // Link to ListenerRequest
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([fromNumber])
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("whatsapp_messages")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum WhatsAppMessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+  STICKER
+  LOCATION
+  TEMPLATE
+}
+
+enum WhatsAppMessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  PENDING
 }
