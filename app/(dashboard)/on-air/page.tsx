@@ -23,6 +23,9 @@ export default function OnAirDashboard() {
     updateQueue,
     approveRequest,
     rejectRequest,
+    refetchQueue,
+    refetchNowPlaying,
+    refetchRequests,
   } = useOnAirSocket(
     (session?.user as any)?.organizationId || '',
     (session?.user as any)?.id || ''
@@ -73,6 +76,8 @@ export default function OnAirDashboard() {
       if (response.ok) {
         skipSong();
         toast.success('Program ended successfully');
+        // Refetch now playing to ensure updated state
+        await refetchNowPlaying();
       }
     } catch (error) {
       console.error('Error ending program:', error);
@@ -91,6 +96,8 @@ export default function OnAirDashboard() {
       if (response.ok) {
         toast.success('Program started successfully');
         setShowSchedule(false);
+        // Manually refetch now playing as fallback if Socket.IO isn't working
+        await refetchNowPlaying();
       }
     } catch (error) {
       console.error('Error starting program:', error);
@@ -112,7 +119,8 @@ export default function OnAirDashboard() {
       if (response.ok) {
         toast.success('Program added to queue');
         setShowSchedule(false);
-        // Queue will be updated via socket broadcast
+        // Manually refetch queue as fallback if Socket.IO isn't working
+        await refetchQueue();
       }
     } catch (error) {
       console.error('Error adding program to queue:', error);
@@ -128,6 +136,8 @@ export default function OnAirDashboard() {
 
       if (response.ok) {
         toast.success('Removed from queue');
+        // Refetch queue to ensure updated state
+        await refetchQueue();
       }
     } catch (error) {
       console.error('Error removing from queue:', error);
@@ -145,6 +155,8 @@ export default function OnAirDashboard() {
 
       if (response.ok) {
         toast.success('Playing next song');
+        // Refetch both queue and now playing
+        await Promise.all([refetchQueue(), refetchNowPlaying()]);
       }
     } catch (error) {
       console.error('Error playing next:', error);
@@ -176,7 +188,9 @@ export default function OnAirDashboard() {
 
       if (response.ok) {
         toast.success('Now playing');
-        // Remove from queue
+        // Refetch to ensure state is updated
+        await Promise.all([refetchNowPlaying(), refetchQueue()]);
+        // Remove from queue after successful play
         await handleRemoveFromQueue(queueItemId);
       }
     } catch (error) {
@@ -196,6 +210,8 @@ export default function OnAirDashboard() {
       if (response.ok) {
         approveRequest(requestId);
         toast.success('Request approved');
+        // Refetch requests to ensure updated state
+        await refetchRequests();
       }
     } catch (error) {
       console.error('Error approving request:', error);
@@ -214,6 +230,8 @@ export default function OnAirDashboard() {
       if (response.ok) {
         rejectRequest(requestId);
         toast.success('Request rejected');
+        // Refetch requests to ensure updated state
+        await refetchRequests();
       }
     } catch (error) {
       console.error('Error rejecting request:', error);

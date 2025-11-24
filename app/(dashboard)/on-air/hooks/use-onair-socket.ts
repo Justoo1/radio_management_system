@@ -231,6 +231,62 @@ export function useOnAirSocket(organizationId: string, userId: string) {
     socket?.emit('request:reject', { id: requestId });
   };
 
+  // Manual refetch functions as fallback when Socket.IO isn't working
+  const refetchQueue = async () => {
+    try {
+      const response = await fetch('/api/onair/queue');
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setQueue(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error refetching queue:', error);
+    }
+  };
+
+  const refetchNowPlaying = async () => {
+    try {
+      const response = await fetch('/api/onair/now');
+      if (response.ok) {
+        const data = await response.json();
+        if (data?.id) {
+          const formattedData: NowPlayingData = {
+            id: data.id,
+            title: data.title || 'Unknown',
+            artist: data.artist,
+            duration: Number(data.duration) || 0,
+            remainingSeconds: Number(data.remainingSeconds) || Number(data.duration) || 0,
+            startedAt: data.startedAt,
+            endsAt: data.endsAt,
+            thumbnailUrl: data.thumbnailUrl,
+            itemType: data.itemType || 'PROGRAM',
+          };
+          setNowPlaying(formattedData);
+        } else {
+          setNowPlaying(null);
+        }
+      }
+    } catch (error) {
+      console.error('Error refetching now playing:', error);
+    }
+  };
+
+  const refetchRequests = async () => {
+    try {
+      const response = await fetch('/api/onair/requests');
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setRequests(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error refetching requests:', error);
+    }
+  };
+
   return {
     socket,
     isConnected,
@@ -243,5 +299,8 @@ export function useOnAirSocket(organizationId: string, userId: string) {
     playInstant,
     approveRequest,
     rejectRequest,
+    refetchQueue,
+    refetchNowPlaying,
+    refetchRequests,
   };
 }
