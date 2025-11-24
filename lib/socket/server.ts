@@ -15,9 +15,21 @@ export const initSocket = (server: HTTPServer): SocketServer => {
     return io;
   }
 
+  // Determine allowed origins based on environment
+  const allowedOrigins = [
+    process.env.NEXTAUTH_URL || 'http://localhost:3000',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    // Vercel preview and production URLs
+    ...(process.env.VERCEL_URL ? [
+      `https://${process.env.VERCEL_URL}`,
+      `https://*.${process.env.VERCEL_URL.split('.').slice(-2).join('.')}`,
+    ] : []),
+  ].filter(Boolean);
+
   io = new SocketIOServer(server, {
     cors: {
-      origin: process.env.NEXTAUTH_URL || 'http://localhost:3000',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -141,70 +153,82 @@ export const initSocket = (server: HTTPServer): SocketServer => {
 
   // Subscribe to Redis channels for cross-server communication
   const setupRedisSubscriptions = async () => {
-    const subscriber = getRedis().duplicate();
+    try {
+      const subscriber = getRedis().duplicate();
 
-    subscriber.psubscribe('org:*', (err, count) => {
-      if (err) {
-        console.error('Failed to subscribe to Redis channels:', err);
-      } else {
-        console.log(`✅ Subscribed to ${count} Redis patterns`);
-      }
-    });
-
-    subscriber.on('pmessage', async (pattern, channel, message) => {
-      try {
-        const data = JSON.parse(message);
-
-        // Extract organization ID from channel
-        const match = channel.match(/org:([^:]+):/);
-        if (!match) return;
-
-        const orgId = match[1];
-
-        // Route messages to appropriate rooms
-        if (channel.includes(':on-air:now')) {
-          // Transform data to match NowPlayingData interface
-          const nowPlayingData = {
-            id: data.data?.id || data.id,
-            title: data.data?.title || data.title,
-            artist: data.data?.artist || data.artist,
-            duration: data.data?.duration || data.duration,
-            remainingSeconds: data.data?.remainingSeconds || data.remainingSeconds || data.data?.duration || data.duration,
-            startedAt: data.data?.startedAt || data.startedAt,
-            endsAt: data.data?.endsAt || data.endsAt,
-            thumbnailUrl: data.data?.thumbnailUrl || data.thumbnailUrl,
-            itemType: data.data?.itemType || data.itemType || 'PROGRAM',
-          };
-          io!.to(`org:${orgId}:dashboard`).emit('now-playing:update', nowPlayingData);
-        } else if (channel.includes(':on-air:queue')) {
-          // Fetch fresh queue and broadcast it
-          try {
-            const prisma = require('@/lib/prisma').default;
-            const freshQueue = await prisma.onAirQueue.findMany({
-              where: {
-                organizationId: orgId,
-                status: 'QUEUED',
-              },
-              orderBy: {
-                position: 'asc',
-              },
-            });
-            io!.to(`org:${orgId}:dashboard`).emit('queue:updated', freshQueue);
-          } catch (error) {
-            console.error('Error fetching fresh queue:', error);
-            io!.to(`org:${orgId}:dashboard`).emit('queue:updated', data);
-          }
-        } else if (channel.includes(':requests:new')) {
-          io!.to(`org:${orgId}:dashboard`).emit('request:new', data);
-        } else if (channel.includes(':timer:update')) {
-          io!.to(`org:${orgId}:dashboard`).emit('timer:tick', data);
-        } else if (channel.includes(':listeners:count')) {
-          io!.to(`org:${orgId}:dashboard`).emit('listeners:updated', data);
+      // Add error handler to prevent unhandled rejections
+      subscriber.on('error', (err) => {
+        const errorMessage = err.message || err.toString();
+        if (!errorMessage.includes('Connection is closed') &&
+            !errorMessage.includes('ECONNRESET')) {
+          console.error('❌ Redis subscriber error:', errorMessage);
         }
-      } catch (error) {
-        console.error('Error processing Redis message:', error);
-      }
-    });
+      });
+
+      subscriber.on('connect', () => {
+        console.log('✅ Redis subscriber connected');
+      });
+
+      await subscriber.psubscribe('org:*');
+      console.log(`✅ Subscribed to Redis patterns`);
+
+      subscriber.on('pmessage', async (_pattern, channel, message) => {
+        try {
+          const data = JSON.parse(message);
+
+          // Extract organization ID from channel
+          const match = channel.match(/org:([^:]+):/);
+          if (!match) return;
+
+          const orgId = match[1];
+
+          // Route messages to appropriate rooms
+          if (channel.includes(':on-air:now')) {
+            // Transform data to match NowPlayingData interface
+            const nowPlayingData = {
+              id: data.data?.id || data.id,
+              title: data.data?.title || data.title,
+              artist: data.data?.artist || data.artist,
+              duration: data.data?.duration || data.duration,
+              remainingSeconds: data.data?.remainingSeconds || data.remainingSeconds || data.data?.duration || data.duration,
+              startedAt: data.data?.startedAt || data.startedAt,
+              endsAt: data.data?.endsAt || data.endsAt,
+              thumbnailUrl: data.data?.thumbnailUrl || data.thumbnailUrl,
+              itemType: data.data?.itemType || data.itemType || 'PROGRAM',
+            };
+            io!.to(`org:${orgId}:dashboard`).emit('now-playing:update', nowPlayingData);
+          } else if (channel.includes(':on-air:queue')) {
+            // Fetch fresh queue and broadcast it
+            try {
+              const prisma = require('@/lib/prisma').default;
+              const freshQueue = await prisma.onAirQueue.findMany({
+                where: {
+                  organizationId: orgId,
+                  status: 'QUEUED',
+                },
+                orderBy: {
+                  position: 'asc',
+                },
+              });
+              io!.to(`org:${orgId}:dashboard`).emit('queue:updated', freshQueue);
+            } catch (error) {
+              console.error('Error fetching fresh queue:', error);
+              io!.to(`org:${orgId}:dashboard`).emit('queue:updated', data);
+            }
+          } else if (channel.includes(':requests:new')) {
+            io!.to(`org:${orgId}:dashboard`).emit('request:new', data);
+          } else if (channel.includes(':timer:update')) {
+            io!.to(`org:${orgId}:dashboard`).emit('timer:tick', data);
+          } else if (channel.includes(':listeners:count')) {
+            io!.to(`org:${orgId}:dashboard`).emit('listeners:updated', data);
+          }
+        } catch (error) {
+          console.error('Error processing Redis message:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to setup Redis subscriptions:', error);
+    }
   };
 
   setupRedisSubscriptions();

@@ -4,8 +4,8 @@ import next from 'next';
 import { initSocket } from './lib/socket/server';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = parseInt(process.env.PORT || '3000', 10);
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+const port = parseInt(process.env.PORT || '3001', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -20,8 +20,9 @@ app.prepare().then(() => {
   // Initialize Socket.IO
   initSocket(server);
 
-  server.listen(port, () => {
-    console.log(`🚀 Server ready on http://${hostname}:${port}`);
-    console.log(`📡 Socket.IO ready on http://${hostname}:${port}/api/socket/io`);
+  server.listen(port, hostname, () => {
+    const displayHost = hostname === '0.0.0.0' ? 'localhost' : hostname;
+    console.log(`🚀 Server ready on http://${displayHost}:${port}`);
+    console.log(`📡 Socket.IO ready on http://${displayHost}:${port}/api/socket/io`);
   });
 });

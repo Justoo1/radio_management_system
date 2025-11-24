@@ -4,9 +4,17 @@ let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
   if (!socket) {
-    socket = io({
+    // Determine Socket.IO server URL
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL ||
+                     (typeof window !== 'undefined' ? window.location.origin : '');
+
+    socket = io(socketUrl, {
       path: '/api/socket/io',
       autoConnect: false,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 5,
     });
   }
   return socket;
