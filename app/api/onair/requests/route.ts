@@ -4,13 +4,22 @@ import { getListenerRequests, createListenerRequest } from '@/lib/services/onair
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    // Get organization ID from headers first (faster, no auth call)
+    let organizationId: string | null = req.headers.get('x-organization-id');
 
-    if (!session?.user) {
+    if (!organizationId) {
+      // Fall back to auth if no header
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      organizationId = (session.user as any).organizationId;
+    }
+
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { organizationId } = session.user as any;
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') || undefined;
 

@@ -8,15 +8,23 @@ import {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    // Get organization ID from request headers (passed from client)
+    let organizationId: string | null = req.headers.get('x-organization-id');
 
-    if (!session?.user) {
+    if (!organizationId) {
+      // Fall back to auth if no org ID header
+      const session = await auth();
+      if (!session?.user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      organizationId = (session.user as any).organizationId;
+    }
+
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { organizationId } = session.user as any;
-
-    const nowPlaying = await getCurrentlyPlaying(organizationId);
+    const nowPlaying = await getCurrentlyPlaying(organizationId as string);
 
     return NextResponse.json(nowPlaying);
   } catch (error: any) {

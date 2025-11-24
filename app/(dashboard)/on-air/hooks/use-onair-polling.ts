@@ -55,7 +55,11 @@ export function useOnAirPolling(organizationId: string, userId: string) {
   // Fetch now playing data
   const fetchNowPlaying = useCallback(async () => {
     try {
-      const response = await fetch('/api/onair/now');
+      const response = await fetch('/api/onair/now', {
+        headers: {
+          'x-organization-id': organizationId,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         if (data?.id) {
@@ -78,12 +82,16 @@ export function useOnAirPolling(organizationId: string, userId: string) {
     } catch (error) {
       console.error('Error fetching now playing:', error);
     }
-  }, []);
+  }, [organizationId]);
 
   // Fetch queue data
   const fetchQueue = useCallback(async () => {
     try {
-      const response = await fetch('/api/onair/queue');
+      const response = await fetch('/api/onair/queue', {
+        headers: {
+          'x-organization-id': organizationId,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -93,12 +101,16 @@ export function useOnAirPolling(organizationId: string, userId: string) {
     } catch (error) {
       console.error('Error fetching queue:', error);
     }
-  }, []);
+  }, [organizationId]);
 
   // Fetch requests data
   const fetchRequests = useCallback(async () => {
     try {
-      const response = await fetch('/api/onair/requests');
+      const response = await fetch('/api/onair/requests', {
+        headers: {
+          'x-organization-id': organizationId,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
@@ -108,7 +120,7 @@ export function useOnAirPolling(organizationId: string, userId: string) {
     } catch (error) {
       console.error('Error fetching requests:', error);
     }
-  }, []);
+  }, [organizationId]);
 
   // Update remaining time every second when something is playing
   useEffect(() => {
