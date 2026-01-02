@@ -4,6 +4,7 @@
  */
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Facebook, Twitter, Linkedin } from 'lucide-react'
 
 export default function Footer() {
@@ -12,7 +13,16 @@ export default function Footer() {
       <div className="grid md:grid-cols-4 gap-12 mb-8">
         {/* Company Info */}
         <div>
-          <h3 className="text-lg font-bold mb-4">RadioMgmt</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <Image
+              src="/logo-white.svg"
+              alt="RMS Logo"
+              width={32}
+              height={32}
+              className="flex-shrink-0"
+            />
+            <h3 className="text-lg font-bold">Radio Management System</h3>
+          </div>
           <p className="text-sm text-slate-300">
             Professional platform for radio stations to manage clients, programs, and campaigns.
           </p>
@@ -85,7 +95,7 @@ export default function Footer() {
         {/* Social Links */}
         <div className="flex items-center justify-between flex-col md:flex-row gap-4">
           <p className="text-sm text-slate-400">
-            © 2024 RadioMgmt. All rights reserved.
+            © 2026 Radio Management System. All rights reserved.
           </p>
           <div className="flex gap-4">
             <a

@@ -1,0 +1,25 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="faviconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#EC4899;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Circle -->
+  <circle cx="16" cy="16" r="15" fill="url(#faviconGradient)"/>
+
+  <!-- Radio Waves Icon -->
+  <g transform="translate(16, 16)">
+    <!-- Center Point -->
+    <circle cx="0" cy="0" r="2.5" fill="white"/>
+
+    <!-- Left Waves -->
+    <path d="M -5 -3 Q -6 0 -5 3" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M -8 -5 Q -10 0 -8 5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+
+    <!-- Right Waves -->
+    <path d="M 5 -3 Q 6 0 5 3" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M 8 -5 Q 10 0 8 5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+  </g>
+</svg>

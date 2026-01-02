@@ -6,6 +6,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 
 export default function HeaderMarketing() {
@@ -14,8 +15,17 @@ export default function HeaderMarketing() {
   return (
     <div className="flex items-center justify-between px-6 py-4">
       {/* Logo */}
-      <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-        RadioMgmt
+      <Link href="/" className="flex items-center gap-2 group">
+        <Image
+          src="/logo.svg"
+          alt="Radio Management System"
+          width={40}
+          height={40}
+          className="flex-shrink-0"
+        />
+        <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+          Radio Management System
+        </span>
       </Link>
 
       {/* Navigation Links */}

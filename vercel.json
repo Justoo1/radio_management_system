@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run build -- --webpack",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "crons": [
+    {
+      "path": "/api/cron/generate-bills",
+      "schedule": "0 6 20 * *"
+    },
+    {
+      "path": "/api/cron/check-overdue-bills",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

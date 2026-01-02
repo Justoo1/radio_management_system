@@ -20,6 +20,14 @@
 # production
 /build
 
+# PWA files
+/public/sw.js
+/public/workbox-*.js
+/public/worker-*.js
+/public/sw.js.map
+/public/workbox-*.js.map
+/public/worker-*.js.map
+
 # misc
 .DS_Store
 *.pem
@@ -78,3 +86,11 @@ next-env.d.ts
 /QUICK_START_FEATURES.md
 /ROUTE_UPDATE.md
 /BILLING_SYSTEM_GUIDE.md
+/BRANDING_AND_PRODUCTION_SUMMARY.md
+/DEPLOYMENT_SUMMARY.md
+/DEPLOYMENT_GUIDE.md
+/LOGO_BRANDING_GUIDE.md
+/PRODUCTION_READINESS.md
+/QUICK_DEPLOY.md
+/SESSION_SUMMARY.md
+/VERCEL_DEPLOYMENT.md

@@ -106,3 +106,32 @@ export async function getEnabledFeatures(): Promise<string[]> {
     return []
   }
 }
+
+/**
+ * Get current user's organization name
+ */
+export async function getOrganizationName(): Promise<string> {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.email) {
+      return 'Radio Management'
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: {
+        organization: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    return user?.organization?.name || 'Radio Management'
+  } catch (error) {
+    console.error('Error getting organization name:', error)
+    return 'Radio Management'
+  }
+}

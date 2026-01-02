@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
+import { resend, DEFAULT_FROM_EMAIL } from '@/lib/resend'
+import { OverdueBillEmail } from '@/emails/overdue-bill'
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,7 +75,31 @@ export async function POST(request: NextRequest) {
 
       notifications.push(notification)
 
-      // Log to console (in production, send actual notifications)
+      // Send email notification using Resend
+      try {
+        const contactPhone = process.env.ADMIN_PHONE || '+233 XX XXX XXXX'
+        const contactEmail = process.env.ADMIN_EMAIL || 'billing@radiomgmt.com'
+
+        await resend.emails.send({
+          from: DEFAULT_FROM_EMAIL,
+          to: notification.ownerEmail || bill.organization.email,
+          subject: `⚠️ Payment Overdue - ${notification.billingPeriod}`,
+          react: OverdueBillEmail({
+            organizationName: notification.organizationName,
+            billAmount: notification.billAmount,
+            billingMonth: notification.billingPeriod,
+            daysOverdue: notification.daysOverdue,
+            contactPhone,
+            contactEmail,
+          }),
+        })
+
+        console.log(`✅ Sent overdue email to ${notification.ownerEmail}`)
+      } catch (emailError) {
+        console.error(`❌ Failed to send email to ${notification.ownerEmail}:`, emailError)
+      }
+
+      // Log to console
       console.log(`
 🔔 OVERDUE BILL NOTIFICATION
 =============================

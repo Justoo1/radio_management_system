@@ -8,12 +8,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import {
   LayoutDashboard,
   Users,
   Radio,
   MessageSquare,
-  Image,
   Megaphone,
   FileText,
   BarChart3,
@@ -23,9 +23,10 @@ import {
   Podcast,
   LucideIcon,
   Lock,
+  ImageIcon,
 } from 'lucide-react'
-import { getEnabledFeatures } from '@/app/actions/features'
-import { Feature, isFeatureEnabled, parseEnabledFeatures } from '@/lib/features'
+import { getEnabledFeatures, getOrganizationName } from '@/app/actions/features'
+import { Feature, isFeatureEnabled } from '@/lib/features'
 
 interface MenuItem {
   href: string
@@ -42,7 +43,7 @@ const menuItems: MenuItem[] = [
   { href: '/programs', label: 'Programs', icon: Radio, feature: Feature.PROGRAMS },
   { href: '/teams', label: 'Teams', icon: Users2, highlight: true, feature: Feature.TEAMS },
   { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare, feature: Feature.SMS_CAMPAIGNS },
-  { href: '/media', label: 'Media Library', icon: Image, feature: Feature.MEDIA_LIBRARY },
+  { href: '/media', label: 'Media Library', icon: ImageIcon, feature: Feature.MEDIA_LIBRARY },
   { href: '/advertising', label: 'Advertising', icon: Megaphone, feature: Feature.ADVERTISEMENTS },
   { href: '/contracts', label: 'Contracts', icon: FileText, feature: Feature.CONTRACTS },
   { href: '/invoices', label: 'Invoices', icon: FileText, feature: Feature.INVOICES },
@@ -59,19 +60,24 @@ export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
   const pathname = usePathname()
   const [enabledFeatures, setEnabledFeatures] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [orgName, setOrgName] = useState('Radio Management')
 
   useEffect(() => {
-    async function loadFeatures() {
+    async function loadData() {
       try {
-        const features = await getEnabledFeatures()
+        const [features, organizationName] = await Promise.all([
+          getEnabledFeatures(),
+          getOrganizationName(),
+        ])
         setEnabledFeatures(features)
+        setOrgName(organizationName)
       } catch (error) {
-        console.error('Failed to load enabled features:', error)
+        console.error('Failed to load data:', error)
       } finally {
         setLoading(false)
       }
     }
-    loadFeatures()
+    loadData()
   }, [])
 
   return (
@@ -79,7 +85,21 @@ export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
       {/* Logo - hidden on mobile sidebar since overlay has it */}
       {!hideLogoOnMobile && (
         <Link href="/dashboard" className="px-6 py-6 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-white">RadioMgmt</h1>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logo-white.svg"
+              alt="RMS Logo"
+              width={40}
+              height={40}
+              className="flex-shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg font-bold text-white truncate">
+                {orgName}
+              </h1>
+              <p className="text-xs text-slate-400">RMS</p>
+            </div>
+          </div>
         </Link>
       )}
 
