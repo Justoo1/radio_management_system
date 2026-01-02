@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { resend, DEFAULT_FROM_EMAIL } from '@/lib/resend'
 import { OverdueBillEmail } from '@/emails/overdue-bill'
+import { AdminOverdueSummaryEmail } from '@/emails/admin-overdue-summary'
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,28 +115,68 @@ Days Overdue: ${notification.daysOverdue}
       `)
     }
 
-    // If you have notifications, you can send them to yourself (admin)
+    // Auto-suspend organizations with 14+ days overdue
+    const suspendedOrgs = []
+    for (const notification of notifications) {
+      if (notification.daysOverdue >= 14) {
+        await prisma.organization.update({
+          where: { id: notification.organizationId },
+          data: { status: 'SUSPENDED' }
+        })
+        suspendedOrgs.push(notification.organizationName)
+        console.log(`🔒 Auto-suspended: ${notification.organizationName} (${notification.daysOverdue} days overdue)`)
+      }
+    }
+
+    // Send summary email to admin
     if (notifications.length > 0) {
-      // Send summary email to admin
       const adminEmail = process.env.ADMIN_EMAIL || 'admin@radiomgmt.com'
-      const adminPhone = process.env.ADMIN_PHONE || '+233123456789'
+      const totalAmount = notifications.reduce((sum, n) => sum + n.billAmount, 0)
 
       console.log(`
 📧 ADMIN NOTIFICATION SUMMARY
 =============================
 Total Overdue Bills: ${notifications.length}
+Total Amount: GH₵ ${totalAmount}
+Auto-Suspended: ${suspendedOrgs.length} organizations
 Admin Email: ${adminEmail}
-Admin Phone: ${adminPhone}
 
 Organizations with overdue bills:
 ${notifications.map(n => `- ${n.organizationName}: GH₵ ${n.billAmount} (${n.daysOverdue} days overdue)`).join('\n')}
+
+${suspendedOrgs.length > 0 ? `\nAuto-Suspended Organizations:\n${suspendedOrgs.map(org => `- ${org}`).join('\n')}` : ''}
 =============================
       `)
 
-      // In production, integrate with:
-      // - Email service (SendGrid, AWS SES, etc.)
-      // - SMS service (Twilio, etc.)
-      // - WhatsApp Business API
+      // Send admin email notification via Resend
+      try {
+        await resend.emails.send({
+          from: DEFAULT_FROM_EMAIL,
+          to: adminEmail,
+          subject: `⚠️ Overdue Bills Report - ${notifications.length} Organizations`,
+          react: AdminOverdueSummaryEmail({
+            overdueBills: notifications.map(n => ({
+              organizationName: n.organizationName,
+              ownerName: n.ownerName || 'N/A',
+              ownerEmail: n.ownerEmail || 'N/A',
+              ownerPhone: n.ownerPhone,
+              billAmount: n.billAmount,
+              billingPeriod: n.billingPeriod,
+              daysOverdue: n.daysOverdue,
+            })),
+            totalAmount,
+            date: new Date().toLocaleDateString('en-GH', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+          }),
+        })
+        console.log(`✅ Sent admin summary email to ${adminEmail}`)
+      } catch (emailError) {
+        console.error(`❌ Failed to send admin email:`, emailError)
+      }
     }
 
     return NextResponse.json({

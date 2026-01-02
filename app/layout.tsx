@@ -57,7 +57,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_GH',
-    url: 'https://radiomgmt.com',
+    url: 'https://radio.edtmsys.com',
     title: 'Radio Management System',
     description:
       'Complete platform for radio stations in Ghana to manage clients, programs, SMS campaigns, advertising, and on-air broadcasting',

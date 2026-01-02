@@ -116,7 +116,7 @@ export const OverdueBillEmail = ({
           <li>Email: {contactEmail}</li>
         </ul>
 
-        <a href="https://radiomgmt.com/settings/billing" className="button">
+        <a href="https://radio.edtmsys.com/settings/billing" className="button">
           Make Payment
         </a>
 

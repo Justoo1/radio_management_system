@@ -297,7 +297,7 @@ export default function PaymentInstructionsPage() {
               <div>
                 <p className="font-semibold text-white">Contact Support</p>
                 <p className="text-sm text-slate-400">
-                  Email: <span className="font-mono text-indigo-300">support@radiomanagementsystem.com</span> or call <span className="font-mono text-indigo-300">+233 (0) 200 123 456</span>
+                  Email: <span className="font-mono text-indigo-300">amankrahjay@gmail.com</span> or call <span className="font-mono text-indigo-300">+233 (0) 549132837</span>
                 </p>
               </div>
             </li>
