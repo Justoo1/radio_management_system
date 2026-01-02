@@ -68,6 +68,7 @@ model Organization {
   contracts      Contract[]
   invoices       Invoice[]
   expenses       Expense[]             @relation("OrganizationExpenses")
+  bills          Bill[]                @relation("OrganizationBills")
   communications Communication[]
   activityLogs   ActivityLog[]
   metrics        Metric[]              @relation("OrganizationMetrics")
@@ -244,6 +245,52 @@ model SubscriptionPayment {
   @@index([status])
   @@index([providerPaymentId])
   @@map("subscription_payments")
+}
+
+// Monthly Bills for Organizations
+model Bill {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation("OrganizationBills", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Billing Period
+  billingMonth Int // 1-12
+  billingYear  Int
+
+  // Amount
+  amount      Decimal @db.Decimal(10, 2)
+  currency    String  @default("GHS")
+  description String? @db.Text
+
+  // Status
+  status    BillStatus @default(PENDING)
+  dueDate   DateTime
+  paidAt    DateTime?
+
+  // Payment Reference
+  paymentMethod PaymentMethodType?
+  paymentRef    String? // Reference number from customer
+  notes         String? @db.Text
+
+  // Reminders
+  reminderSentAt DateTime?
+  overdueNoticeSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, billingMonth, billingYear])
+  @@index([organizationId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("bills")
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
 }
 
 enum PaymentStatus {

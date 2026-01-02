@@ -219,6 +219,13 @@ export default function OrganizationDetailsPage() {
         </span>
 
         <div className="flex gap-2 ml-auto">
+          <Link
+            href={`/organizations/${organizationId}/features`}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"
+          >
+            Manage Features
+          </Link>
+
           {organization.status !== 'ACTIVE' && (
             <button
               onClick={handleActivate}

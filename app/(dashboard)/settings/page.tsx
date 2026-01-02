@@ -336,21 +336,28 @@ export default function SettingsPage() {
               </div>
               <div>
                 <p className="text-sm text-slate-400 mb-1">Price</p>
-                <p className="text-lg font-semibold text-white">GHS {subscription.planPrice}/month</p>
+                <p className="text-lg font-semibold text-white">GH₵ {subscription.planPrice}/month</p>
               </div>
               <div>
-                <p className="text-sm text-slate-400 mb-1">Renewal Date</p>
-                <p className="text-lg font-semibold text-white">
-                  {subscription.renewalDate
-                    ? new Date(subscription.renewalDate).toLocaleDateString()
-                    : 'N/A'}
-                </p>
+                <p className="text-sm text-slate-400 mb-1">Billing Cycle</p>
+                <p className="text-lg font-semibold text-white">Monthly</p>
               </div>
             </div>
 
-            <button className="mt-6 w-full px-4 py-2 bg-gradient-to-r from-blue-600/40 to-cyan-600/40 hover:from-blue-600/60 hover:to-cyan-600/60 border border-blue-500/30 hover:border-blue-400/50 text-blue-200 rounded-lg text-sm font-semibold transition-all duration-300">
-              Manage Billing
-            </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <a
+                href="/upgrade"
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600/40 to-purple-600/40 hover:from-indigo-600/60 hover:to-purple-600/60 border border-indigo-500/30 text-indigo-200 rounded-lg text-sm font-semibold transition-all duration-300 text-center"
+              >
+                Upgrade Plan
+              </a>
+              <a
+                href="/settings/billing"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600/40 to-cyan-600/40 hover:from-blue-600/60 hover:to-cyan-600/60 border border-blue-500/30 hover:border-blue-400/50 text-blue-200 rounded-lg text-sm font-semibold transition-all duration-300 text-center"
+              >
+                Manage Billing
+              </a>
+            </div>
           </FormSection>
         </SettingsCard>
       )}

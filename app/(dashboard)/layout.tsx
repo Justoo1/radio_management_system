@@ -9,6 +9,7 @@ import { auth } from '@/lib/auth'
 import Sidebar from '@/components/layouts/sidebar'
 import Header from '@/components/layouts/header'
 import MobileSidebarOverlay from '@/components/layouts/mobile-sidebar-overlay'
+import { BillingBanner } from '@/components/billing-banner'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,9 @@ export default async function DashboardLayout({
         {/* Page Content */}
         <main className="flex-1 overflow-auto">
           <div className="max-w-7xl mx-auto p-4 md:p-8">
+            {/* Billing Banner */}
+            <BillingBanner />
+
             {children}
           </div>
         </main>
