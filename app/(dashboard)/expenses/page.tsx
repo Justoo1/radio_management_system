@@ -5,6 +5,8 @@
 
 'use client'
 
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 import { useEffect, useState } from 'react'
 import {
   DollarSign,
@@ -50,6 +52,17 @@ interface ExpensesPageState {
 }
 
 export default function ExpensesPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.EXPENSES}
+      featureDescription="Track and manage your organization expenses with detailed reporting"
+    >
+      <ExpensesContent />
+    </FeatureGuard>
+  )
+}
+
+function ExpensesContent() {
   const [state, setState] = useState<ExpensesPageState>({
     expenses: [],
     summary: null,

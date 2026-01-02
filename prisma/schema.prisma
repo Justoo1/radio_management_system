@@ -48,6 +48,9 @@ model Organization {
   maxSMSPerMonth Int @default(500)
   maxStorageGB   Int @default(5)
 
+  // Feature Flags (Admin can lock/unlock features)
+  enabledFeatures String @default("[]") @db.Text // JSON array of enabled feature keys
+
   // Owner
   ownerId String? @unique
   owner   User?   @relation("OrganizationOwner", fields: [ownerId], references: [id])

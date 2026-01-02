@@ -25,17 +25,21 @@ export default function PricingPage() {
             {/* Starter Plan */}
             <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-8">
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Starter</h3>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">For new radio stations</p>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">Perfect for small radio stations</p>
               <div className="mb-6">
-                <span className="text-4xl font-bold text-slate-900 dark:text-white">$29</span>
+                <span className="text-4xl font-bold text-slate-900 dark:text-white">GH₵ 500</span>
                 <span className="text-slate-600 dark:text-slate-400">/month</span>
               </div>
               <ul className="space-y-3 text-slate-600 dark:text-slate-400 mb-8">
-                <li>✓ Up to 5 users</li>
-                <li>✓ 100 client contacts</li>
-                <li>✓ 50 programs</li>
-                <li>✓ 500 SMS/month</li>
-                <li>✓ Basic analytics</li>
+                <li>✓ Client Management</li>
+                <li>✓ Program Scheduling</li>
+                <li>✓ Live On-Air Dashboard</li>
+                <li>✓ Invoices & Contracts</li>
+                <li>✓ Basic Reports</li>
+                <li>✓ Up to 5 Users</li>
+                <li className="text-slate-400">✗ SMS Campaigns</li>
+                <li className="text-slate-400">✗ Advertisement Management</li>
+                <li className="text-slate-400">✗ Media Library</li>
               </ul>
               <button className="w-full bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white px-6 py-2 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-700 transition">
                 Get Started
@@ -48,21 +52,23 @@ export default function PricingPage() {
                 Most Popular
               </div>
               <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Professional</h3>
-              <p className="text-slate-600 dark:text-slate-400 mb-6">For growing stations</p>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">For growing radio stations</p>
               <div className="mb-6">
-                <span className="text-4xl font-bold text-slate-900 dark:text-white">$79</span>
+                <span className="text-4xl font-bold text-slate-900 dark:text-white">GH₵ 1,200</span>
                 <span className="text-slate-600 dark:text-slate-400">/month</span>
               </div>
               <ul className="space-y-3 text-slate-600 dark:text-slate-400 mb-8">
-                <li>✓ Up to 20 users</li>
-                <li>✓ Unlimited client contacts</li>
-                <li>✓ 500 programs</li>
-                <li>✓ 5,000 SMS/month</li>
-                <li>✓ Advanced analytics</li>
-                <li>✓ API access</li>
+                <li>✓ Everything in Starter</li>
+                <li>✓ SMS Campaigns</li>
+                <li>✓ Advertisement Management</li>
+                <li>✓ Media Library</li>
+                <li>✓ WhatsApp Integration</li>
+                <li>✓ Expense Tracking</li>
+                <li>✓ Up to 15 Users</li>
+                <li className="text-slate-400">✗ Advanced Analytics</li>
               </ul>
               <button className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-6 py-2 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-100 transition font-medium">
-                Start Trial
+                Start 7-Day Trial
               </button>
             </div>
 

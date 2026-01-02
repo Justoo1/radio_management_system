@@ -48,30 +48,38 @@ export async function startPlaying(organizationId: string, data: NowPlayingData)
     },
   });
 
-  // Cache in Redis
-  const redis = getRedis();
-  await redis.setex(
-    `onair:now:${organizationId}`,
-    data.duration,
-    JSON.stringify(onAirNow)
-  );
+  // Cache in Redis (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.setex(
+      `onair:now:${organizationId}`,
+      data.duration,
+      JSON.stringify(onAirNow)
+    );
 
-  // Publish to Redis channel
-  await redis.publish(
-    REDIS_CHANNELS.ON_AIR_NOW(organizationId),
-    JSON.stringify({ action: 'start', data: onAirNow })
-  );
+    // Publish to Redis channel
+    await redis.publish(
+      REDIS_CHANNELS.ON_AIR_NOW(organizationId),
+      JSON.stringify({ action: 'start', data: onAirNow })
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 
   return onAirNow;
 }
 
 export async function getCurrentlyPlaying(organizationId: string) {
-  // Try cache first
-  const redis = getRedis();
-  const cached = await redis.get(`onair:now:${organizationId}`);
+  // Try cache first (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    const cached = await redis.get(`onair:now:${organizationId}`);
 
-  if (cached) {
-    return JSON.parse(cached);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (error) {
+    console.warn('Redis read failed, falling back to database:', error instanceof Error ? error.message : error);
   }
 
   // Fall back to database
@@ -100,15 +108,19 @@ export async function skipCurrentlyPlaying(organizationId: string) {
     where: { organizationId },
   });
 
-  // Clear cache
-  const redis = getRedis();
-  await redis.del(`onair:now:${organizationId}`);
+  // Clear cache (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.del(`onair:now:${organizationId}`);
 
-  // Publish to Redis
-  await redis.publish(
-    REDIS_CHANNELS.ON_AIR_NOW(organizationId),
-    JSON.stringify({ action: 'skip' })
-  );
+    // Publish to Redis
+    await redis.publish(
+      REDIS_CHANNELS.ON_AIR_NOW(organizationId),
+      JSON.stringify({ action: 'skip' })
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 
   return { success: true };
 }
@@ -119,12 +131,16 @@ export async function updateRemainingTime(organizationId: string, remainingSecon
     data: { remainingSeconds },
   });
 
-  // Publish timer update
-  const redis = getRedis();
-  await redis.publish(
-    REDIS_CHANNELS.TIMER_UPDATE(organizationId),
-    JSON.stringify({ remainingSeconds })
-  );
+  // Publish timer update (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.publish(
+      REDIS_CHANNELS.TIMER_UPDATE(organizationId),
+      JSON.stringify({ remainingSeconds })
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 }
 
 // ============================================
@@ -155,12 +171,16 @@ export async function addToQueue(organizationId: string, data: QueueItemData) {
     },
   });
 
-  // Publish to Redis
-  const redis = getRedis();
-  await redis.publish(
-    REDIS_CHANNELS.QUEUE_UPDATE(organizationId),
-    JSON.stringify({ action: 'add', data: queueItem })
-  );
+  // Publish to Redis (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.publish(
+      REDIS_CHANNELS.QUEUE_UPDATE(organizationId),
+      JSON.stringify({ action: 'add', data: queueItem })
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 
   return queueItem;
 }
@@ -191,12 +211,16 @@ export async function updateQueuePositions(
     )
   );
 
-  // Publish to Redis
-  const redis = getRedis();
-  await redis.publish(
-    REDIS_CHANNELS.QUEUE_UPDATE(organizationId),
-    JSON.stringify({ action: 'reorder', data: items })
-  );
+  // Publish to Redis (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.publish(
+      REDIS_CHANNELS.QUEUE_UPDATE(organizationId),
+      JSON.stringify({ action: 'reorder', data: items })
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 
   return { success: true };
 }
@@ -426,12 +450,16 @@ export async function createListenerRequest(data: {
     },
   });
 
-  // Publish to Redis
-  const redis = getRedis();
-  await redis.publish(
-    REDIS_CHANNELS.NEW_REQUEST(data.organizationId),
-    JSON.stringify(request)
-  );
+  // Publish to Redis (optional - don't fail if Redis is down)
+  try {
+    const redis = getRedis();
+    await redis.publish(
+      REDIS_CHANNELS.NEW_REQUEST(data.organizationId),
+      JSON.stringify(request)
+    );
+  } catch (error) {
+    console.warn('Redis operation failed, continuing without cache:', error instanceof Error ? error.message : error);
+  }
 
   return request;
 }

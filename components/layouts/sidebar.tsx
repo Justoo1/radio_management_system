@@ -5,6 +5,7 @@
 
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -21,28 +22,32 @@ import {
   Receipt,
   Podcast,
   LucideIcon,
+  Lock,
 } from 'lucide-react'
+import { getEnabledFeatures } from '@/app/actions/features'
+import { Feature, isFeatureEnabled, parseEnabledFeatures } from '@/lib/features'
 
 interface MenuItem {
   href: string
   label: string
   icon: LucideIcon
   highlight?: boolean
+  feature?: Feature // Optional feature flag
 }
 
 const menuItems: MenuItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/on-air', label: 'Live On-Air', icon: Podcast, highlight: true },
-  { href: '/clients', label: 'Clients', icon: Users },
-  { href: '/programs', label: 'Programs', icon: Radio },
-  { href: '/teams', label: 'Teams', icon: Users2, highlight: true },
-  { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare },
-  { href: '/media', label: 'Media Library', icon: Image },
-  { href: '/advertising', label: 'Advertising', icon: Megaphone },
-  { href: '/contracts', label: 'Contracts', icon: FileText },
-  { href: '/invoices', label: 'Invoices', icon: FileText },
-  { href: '/expenses', label: 'Expenses', icon: Receipt },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/on-air', label: 'Live On-Air', icon: Podcast, highlight: true, feature: Feature.ON_AIR },
+  { href: '/clients', label: 'Clients', icon: Users, feature: Feature.CLIENTS },
+  { href: '/programs', label: 'Programs', icon: Radio, feature: Feature.PROGRAMS },
+  { href: '/teams', label: 'Teams', icon: Users2, highlight: true, feature: Feature.TEAMS },
+  { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare, feature: Feature.SMS_CAMPAIGNS },
+  { href: '/media', label: 'Media Library', icon: Image, feature: Feature.MEDIA_LIBRARY },
+  { href: '/advertising', label: 'Advertising', icon: Megaphone, feature: Feature.ADVERTISEMENTS },
+  { href: '/contracts', label: 'Contracts', icon: FileText, feature: Feature.CONTRACTS },
+  { href: '/invoices', label: 'Invoices', icon: FileText, feature: Feature.INVOICES },
+  { href: '/expenses', label: 'Expenses', icon: Receipt, feature: Feature.EXPENSES },
+  { href: '/reports', label: 'Reports', icon: BarChart3, feature: Feature.REPORTS },
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -52,6 +57,22 @@ interface SidebarProps {
 
 export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
   const pathname = usePathname()
+  const [enabledFeatures, setEnabledFeatures] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadFeatures() {
+      try {
+        const features = await getEnabledFeatures()
+        setEnabledFeatures(features)
+      } catch (error) {
+        console.error('Failed to load enabled features:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadFeatures()
+  }, [])
 
   return (
     <div className="flex flex-col h-full">
@@ -68,6 +89,9 @@ export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
 
+          // Check if feature is locked
+          const isLocked = item.feature && !loading && !isFeatureEnabled(enabledFeatures, item.feature)
+
           return (
             <Link
               key={item.href}
@@ -79,16 +103,29 @@ export default function Sidebar({ hideLogoOnMobile = false }: SidebarProps) {
                     : 'bg-slate-800 text-white'
                   : item.highlight
                   ? 'bg-gradient-to-r from-purple-600/10 to-pink-600/10 text-purple-300 hover:from-purple-600/20 hover:to-pink-600/20 border border-purple-500/30'
+                  : isLocked
+                  ? 'text-slate-500 hover:bg-slate-800/30'
                   : 'text-slate-300 hover:bg-slate-800/50'
               }`}
             >
               <Icon size={20} />
               <span className="text-sm font-medium">{item.label}</span>
-              {item.highlight && !isActive && (
+
+              {/* Lock Icon for locked features */}
+              {isLocked && (
+                <span className="ml-auto">
+                  <Lock size={16} className="text-slate-500" />
+                </span>
+              )}
+
+              {/* Highlight badge */}
+              {item.highlight && !isActive && !isLocked && (
                 <span className="ml-auto px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                   NEW
                 </span>
               )}
+
+              {/* Active pulse */}
               {item.highlight && isActive && (
                 <span className="ml-auto">
                   <span className="relative flex h-2 w-2">

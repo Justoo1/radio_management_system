@@ -8,6 +8,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Search, Plus, Edit, Trash2, Send, MessageSquare, ArrowUpRight } from 'lucide-react'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface SMSCampaign {
   id: string
@@ -20,6 +22,17 @@ interface SMSCampaign {
 }
 
 export default function SMSCampaignsPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.SMS_CAMPAIGNS}
+      featureDescription="Send targeted SMS campaigns to your clients and audience"
+    >
+      <SMSCampaignsContent />
+    </FeatureGuard>
+  )
+}
+
+function SMSCampaignsContent() {
   const [campaigns, setCampaigns] = useState<SMSCampaign[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

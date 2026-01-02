@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
   BarChart3,
@@ -96,7 +97,44 @@ const reports = [
   },
 ]
 
+interface QuickStats {
+  totalRevenue: number
+  totalClients: number
+  activePrograms: number
+  smsCampaigns: number
+}
+
 export default function ReportsPage() {
+  const [stats, setStats] = useState<QuickStats | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchQuickStats()
+  }, [])
+
+  const fetchQuickStats = async () => {
+    try {
+      const response = await fetch('/api/dashboard/stats')
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch quick stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
   return (
     <div className="min-h-screen">
       {/* Animated background elements */}
@@ -121,36 +159,52 @@ export default function ReportsPage() {
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20">
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Reports</p>
-              <p className="text-4xl font-bold text-white mb-2">{reports.length}</p>
-              <p className="text-slate-500 text-xs">Available reports</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">Total Revenue</p>
+              {loading ? (
+                <p className="text-2xl font-bold text-white mb-2">Loading...</p>
+              ) : (
+                <p className="text-4xl font-bold text-white mb-2">{stats ? formatCurrency(stats.totalRevenue) : '$0'}</p>
+              )}
+              <p className="text-slate-500 text-xs">From paid invoices</p>
             </div>
           </div>
 
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20">
-              <p className="text-slate-400 text-sm font-medium mb-1">Financial Reports</p>
-              <p className="text-4xl font-bold text-white mb-2">5</p>
-              <p className="text-slate-500 text-xs">Revenue & profitability</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">Total Clients</p>
+              {loading ? (
+                <p className="text-2xl font-bold text-white mb-2">Loading...</p>
+              ) : (
+                <p className="text-4xl font-bold text-white mb-2">{stats?.totalClients || 0}</p>
+              )}
+              <p className="text-slate-500 text-xs">Active clients</p>
             </div>
           </div>
 
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-red-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-orange-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/20">
-              <p className="text-slate-400 text-sm font-medium mb-1">Operational Reports</p>
-              <p className="text-4xl font-bold text-white mb-2">3</p>
-              <p className="text-slate-500 text-xs">Business operations</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">Active Programs</p>
+              {loading ? (
+                <p className="text-2xl font-bold text-white mb-2">Loading...</p>
+              ) : (
+                <p className="text-4xl font-bold text-white mb-2">{stats?.activePrograms || 0}</p>
+              )}
+              <p className="text-slate-500 text-xs">Radio programs</p>
             </div>
           </div>
 
           <div className="group relative">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-purple-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/20">
-              <p className="text-slate-400 text-sm font-medium mb-1">Last Updated</p>
-              <p className="text-4xl font-bold text-white mb-2">Today</p>
-              <p className="text-slate-500 text-xs">Real-time data</p>
+              <p className="text-slate-400 text-sm font-medium mb-1">SMS Campaigns</p>
+              {loading ? (
+                <p className="text-2xl font-bold text-white mb-2">Loading...</p>
+              ) : (
+                <p className="text-4xl font-bold text-white mb-2">{stats?.smsCampaigns || 0}</p>
+              )}
+              <p className="text-slate-500 text-xs">Total sent</p>
             </div>
           </div>
         </div>
