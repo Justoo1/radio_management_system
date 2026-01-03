@@ -21,6 +21,8 @@ export interface FinancialSummary {
 
 export interface PLReport {
   period: { startDate: string; endDate: string }
+  currency: string
+  organizationName: string
   revenue: { invoices: number; total: number }
   expenses: {
     total: number

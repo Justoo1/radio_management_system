@@ -7,6 +7,8 @@ import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
 import { useFinancialStore } from '@/app/stores/financialStore'
 import { getPLReport } from '@/app/actions/financial-reports'
+import { generatePLPDF } from '@/lib/pdf-export'
+import { formatCurrency, formatCurrencyCompact } from '@/lib/currency'
 
 export default function PLReportPage() {
   const { plReport, plLoading, setPLReport, setPLLoading } = useFinancialStore()
@@ -36,6 +38,12 @@ export default function PLReportPage() {
     }
   }
 
+  const handleExportPDF = () => {
+    if (plReport) {
+      generatePLPDF(plReport)
+    }
+  }
+
   if (plLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -53,6 +61,7 @@ export default function PLReportPage() {
   }
 
   const report = plReport
+  const currency = report?.currency || 'GHS'
 
   return (
     <div className="min-h-screen">
@@ -76,7 +85,12 @@ export default function PLReportPage() {
               <p className="text-slate-400 mt-2 text-lg">Comprehensive income and expense analysis</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" className="bg-white/10 border-white/20 hover:bg-white/20">
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-white/10 border-white/20 hover:bg-white/20"
+            onClick={handleExportPDF}
+          >
             <Download className="h-4 w-4 mr-2 text-slate-300" />
             <span className="text-slate-300">Export PDF</span>
           </Button>
@@ -113,7 +127,7 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-blue-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/20">
               <p className="text-slate-400 text-sm font-medium mb-1">Total Revenue</p>
-              <p className="text-4xl font-bold text-white mb-2">${(report.revenue.total / 1000).toFixed(1)}K</p>
+              <p className="text-4xl font-bold text-white mb-2">{formatCurrencyCompact(report.revenue.total, currency)}</p>
               <p className="text-slate-500 text-xs">From invoices and contracts</p>
             </div>
           </div>
@@ -122,7 +136,7 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-orange-600/20 to-red-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-orange-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-orange-500/20">
               <p className="text-slate-400 text-sm font-medium mb-1">Total Expenses</p>
-              <p className="text-4xl font-bold text-white mb-2">${(report.expenses.total / 1000).toFixed(1)}K</p>
+              <p className="text-4xl font-bold text-white mb-2">{formatCurrencyCompact(report.expenses.total, currency)}</p>
               <p className="text-slate-500 text-xs">Operating and direct costs</p>
             </div>
           </div>
@@ -131,7 +145,7 @@ export default function PLReportPage() {
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/20 to-cyan-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-2xl hover:shadow-emerald-500/20">
               <p className="text-slate-400 text-sm font-medium mb-1">Net Profit</p>
-              <p className="text-4xl font-bold text-emerald-400 mb-2">${(report.profit.net / 1000).toFixed(1)}K</p>
+              <p className="text-4xl font-bold text-emerald-400 mb-2">{formatCurrencyCompact(report.profit.net, currency)}</p>
               <p className="text-slate-500 text-xs">{report.margins.net.toFixed(1)}% margin</p>
             </div>
           </div>
@@ -154,12 +168,12 @@ export default function PLReportPage() {
                   </tr>
                   <tr className="border-b border-white/10">
                     <td className="py-3 px-4 text-slate-300">Invoice Revenue</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${report.revenue.invoices.toLocaleString()}</td>
+                    <td className="text-right py-3 px-4 text-slate-300">{formatCurrency(report.revenue.invoices, currency)}</td>
                   </tr>
                   <tr className="bg-gradient-to-r from-blue-600/20 to-blue-600/10 border-b border-white/10">
                     <td className="font-semibold text-white py-3 px-4">Total Revenue</td>
                     <td className="text-right font-semibold text-white py-3 px-4">
-                      ${report.revenue.total.toLocaleString()}
+                      {formatCurrency(report.revenue.total, currency)}
                     </td>
                   </tr>
 
@@ -170,12 +184,12 @@ export default function PLReportPage() {
                   </tr>
                   <tr className="border-b border-white/10">
                     <td className="py-3 px-4 text-slate-300">Total Expenses</td>
-                    <td className="text-right py-3 px-4 text-slate-300">${(report.expenses.total || 0).toLocaleString()}</td>
+                    <td className="text-right py-3 px-4 text-slate-300">{formatCurrency(report.expenses.total || 0, currency)}</td>
                   </tr>
                   <tr className="bg-gradient-to-r from-red-600/20 to-red-600/10 border-b border-white/10">
                     <td className="font-semibold text-white py-3 px-4">Gross Profit</td>
                     <td className="text-right font-semibold text-white py-3 px-4">
-                      ${(report.profit.gross || 0).toLocaleString()}
+                      {formatCurrency(report.profit.gross || 0, currency)}
                     </td>
                   </tr>
 
@@ -183,7 +197,7 @@ export default function PLReportPage() {
                   <tr className="bg-gradient-to-r from-emerald-600/20 to-emerald-600/10">
                     <td className="font-semibold text-white py-3 px-4 text-base">Net Income</td>
                     <td className="text-right font-semibold text-emerald-400 py-3 px-4 text-base">
-                      ${(report.profit.net || 0).toLocaleString()}
+                      {formatCurrency(report.profit.net || 0, currency)}
                     </td>
                   </tr>
                 </tbody>

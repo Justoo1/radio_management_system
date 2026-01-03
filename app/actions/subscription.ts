@@ -270,6 +270,74 @@ export async function activateOrganization(organizationId: string) {
 }
 
 /**
+ * Get current user's subscription plan
+ */
+export async function getUserSubscriptionPlan() {
+  try {
+    const session = await auth()
+    if (!session?.user?.email) {
+      throw new Error('Unauthorized')
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      select: {
+        organization: {
+          select: {
+            subscription: {
+              select: {
+                plan: {
+                  select: {
+                    name: true,
+                  }
+                },
+                status: true,
+              }
+            },
+            status: true,
+          }
+        }
+      },
+    })
+
+    if (!user?.organization) {
+      return {
+        planName: 'STARTER',
+        status: 'TRIAL',
+      }
+    }
+
+    // If organization is in trial, return TRIAL
+    if (user.organization.status === 'TRIAL') {
+      return {
+        planName: 'TRIAL',
+        status: 'TRIAL',
+      }
+    }
+
+    // If has subscription, return plan name
+    if (user.organization.subscription) {
+      return {
+        planName: user.organization.subscription.plan.name.toUpperCase(),
+        status: user.organization.subscription.status,
+      }
+    }
+
+    // Default to STARTER
+    return {
+      planName: 'STARTER',
+      status: 'ACTIVE',
+    }
+  } catch (error) {
+    console.error('Error fetching subscription plan:', error)
+    return {
+      planName: 'STARTER',
+      status: 'ACTIVE',
+    }
+  }
+}
+
+/**
  * Deactivate/Suspend an organization (admin only)
  */
 export async function deactivateOrganization(

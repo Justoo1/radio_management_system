@@ -11,8 +11,12 @@ import {
   Calendar,
   Radio,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  Lock,
+  Crown
 } from 'lucide-react'
+import { getUserSubscriptionPlan } from '@/app/actions/subscription'
+import { hasReportAccess, type ReportType } from '@/lib/subscription-access'
 
 const reports = [
   {
@@ -24,6 +28,7 @@ const reports = [
     borderColor: 'hover:border-blue-500/50',
     shadowColor: 'hover:shadow-blue-500/20',
     metrics: ['Revenue', 'Profit Margin', 'Collection Rate', 'DSO'],
+    reportType: 'financial-dashboard' as ReportType,
   },
   {
     title: 'Profit & Loss',
@@ -34,6 +39,7 @@ const reports = [
     borderColor: 'hover:border-emerald-500/50',
     shadowColor: 'hover:shadow-emerald-500/20',
     metrics: ['Gross Profit', 'Operating Profit', 'Net Profit', 'Margins'],
+    reportType: 'profit-loss' as ReportType,
   },
   {
     title: 'Revenue Analysis',
@@ -44,6 +50,7 @@ const reports = [
     borderColor: 'hover:border-orange-500/50',
     shadowColor: 'hover:shadow-orange-500/20',
     metrics: ['Total Revenue', 'By Client', 'Growth Rate', 'Trends'],
+    reportType: 'revenue' as ReportType,
   },
   {
     title: 'Invoice Aging',
@@ -54,6 +61,7 @@ const reports = [
     borderColor: 'hover:border-purple-500/50',
     shadowColor: 'hover:shadow-purple-500/20',
     metrics: ['AR Analysis', 'DSO', 'Overdue Items', 'Collections'],
+    reportType: 'aging' as ReportType,
   },
   {
     title: 'Contract Analysis',
@@ -64,6 +72,7 @@ const reports = [
     borderColor: 'hover:border-indigo-500/50',
     shadowColor: 'hover:shadow-indigo-500/20',
     metrics: ['Total Value', 'Realization Rate', 'By Status', 'Top Clients'],
+    reportType: 'contracts' as ReportType,
   },
   {
     title: 'Client Analytics',
@@ -74,6 +83,7 @@ const reports = [
     borderColor: 'hover:border-pink-500/50',
     shadowColor: 'hover:shadow-pink-500/20',
     metrics: ['Total Clients', 'Retention', 'Growth', 'Value'],
+    reportType: 'clients' as ReportType,
   },
   {
     title: 'Programs Report',
@@ -84,6 +94,7 @@ const reports = [
     borderColor: 'hover:border-cyan-500/50',
     shadowColor: 'hover:shadow-cyan-500/20',
     metrics: ['Programs', 'Audience', 'Performance', 'Schedule'],
+    reportType: 'programs' as ReportType,
   },
   {
     title: 'SMS Report',
@@ -94,6 +105,7 @@ const reports = [
     borderColor: 'hover:border-teal-500/50',
     shadowColor: 'hover:shadow-teal-500/20',
     metrics: ['Campaigns', 'Sent', 'Delivered', 'Engaged'],
+    reportType: 'sms' as ReportType,
   },
 ]
 
@@ -107,10 +119,25 @@ interface QuickStats {
 export default function ReportsPage() {
   const [stats, setStats] = useState<QuickStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userPlan, setUserPlan] = useState<string | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
 
   useEffect(() => {
     fetchQuickStats()
+    fetchUserPlan()
   }, [])
+
+  const fetchUserPlan = async () => {
+    try {
+      const plan = await getUserSubscriptionPlan()
+      setUserPlan(plan.planName)
+    } catch (error) {
+      console.error('Failed to fetch user plan:', error)
+      setUserPlan('STARTER')
+    } finally {
+      setPlanLoading(false)
+    }
+  }
 
   const fetchQuickStats = async () => {
     try {
@@ -135,6 +162,97 @@ export default function ReportsPage() {
     }).format(amount)
   }
 
+  const isReportAccessible = (reportType: ReportType) => {
+    if (planLoading) return true // Show all while loading
+    return hasReportAccess(userPlan, reportType)
+  }
+
+  const renderReportCard = (report: typeof reports[0]) => {
+    const Icon = report.icon
+    const accessible = isReportAccessible(report.reportType)
+
+    if (!accessible) {
+      return (
+        <div key={report.href} className="group relative h-full">
+          <div className={`absolute inset-0 bg-gradient-to-r ${report.colorGradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity`} />
+          <div className={`relative bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 transition-all duration-300 h-full cursor-not-allowed opacity-60`}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-slate-400">{report.title}</h3>
+                  <Lock className="h-4 w-4 text-amber-400" />
+                </div>
+                <p className="text-slate-500 text-sm mt-1">
+                  {report.description}
+                </p>
+              </div>
+              <Icon className="h-6 w-6 text-slate-500 flex-shrink-0" />
+            </div>
+
+            <div className="space-y-3 mt-4">
+              <p className="text-xs font-semibold text-slate-500">Key Metrics:</p>
+              <div className="flex flex-wrap gap-2">
+                {report.metrics.map((metric, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-block text-xs bg-white/5 text-slate-500 px-2 py-1 rounded border border-white/5"
+                  >
+                    {metric}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-amber-400 text-xs font-semibold flex items-center gap-1">
+                <Crown className="h-3 w-3" />
+                Professional Plan Required
+              </span>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <Link key={report.href} href={report.href}>
+        <div className="group relative h-full">
+          <div className={`absolute inset-0 bg-gradient-to-r ${report.colorGradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity`} />
+          <div className={`relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 ${report.borderColor} transition-all duration-300 hover:shadow-2xl ${report.shadowColor} h-full`}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">{report.title}</h3>
+                <p className="text-slate-400 text-sm mt-1">
+                  {report.description}
+                </p>
+              </div>
+              <Icon className="h-6 w-6 text-slate-300 flex-shrink-0" />
+            </div>
+
+            <div className="space-y-3 mt-4">
+              <p className="text-xs font-semibold text-slate-400">Key Metrics:</p>
+              <div className="flex flex-wrap gap-2">
+                {report.metrics.map((metric, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-block text-xs bg-white/10 text-slate-300 px-2 py-1 rounded border border-white/10"
+                  >
+                    {metric}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 flex items-center text-blue-400 text-sm font-semibold group-hover:gap-2 transition-all">
+              View Report
+              <ArrowRight className="h-4 w-4 ml-1" />
+            </div>
+          </div>
+        </div>
+      </Link>
+    )
+  }
+
   return (
     <div className="min-h-screen">
       {/* Animated background elements */}
@@ -152,6 +270,11 @@ export default function ReportsPage() {
           <p className="text-slate-400 mt-3 text-lg">
             Comprehensive business intelligence and performance metrics
           </p>
+          {!planLoading && userPlan && (
+            <p className="text-slate-500 mt-2 text-sm">
+              Current Plan: <span className="text-amber-400 font-semibold">{userPlan}</span>
+            </p>
+          )}
         </div>
 
         {/* Quick Stats */}
@@ -213,46 +336,7 @@ export default function ReportsPage() {
         <div>
           <h2 className="text-2xl font-bold text-white mb-6">Financial Reports</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.slice(0, 5).map((report) => {
-              const Icon = report.icon
-              return (
-                <Link key={report.href} href={report.href}>
-                  <div className="group relative h-full">
-                    <div className={`absolute inset-0 bg-gradient-to-r ${report.colorGradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity`} />
-                    <div className={`relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 ${report.borderColor} transition-all duration-300 hover:shadow-2xl ${report.shadowColor} h-full`}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-white">{report.title}</h3>
-                          <p className="text-slate-400 text-sm mt-1">
-                            {report.description}
-                          </p>
-                        </div>
-                        <Icon className="h-6 w-6 text-slate-300 flex-shrink-0" />
-                      </div>
-
-                      <div className="space-y-3 mt-4">
-                        <p className="text-xs font-semibold text-slate-400">Key Metrics:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {report.metrics.map((metric, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-block text-xs bg-white/10 text-slate-300 px-2 py-1 rounded border border-white/10"
-                            >
-                              {metric}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center text-blue-400 text-sm font-semibold group-hover:gap-2 transition-all">
-                        View Report
-                        <ArrowRight className="h-4 w-4 ml-1" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
+            {reports.slice(0, 5).map(renderReportCard)}
           </div>
         </div>
 
@@ -260,76 +344,7 @@ export default function ReportsPage() {
         <div>
           <h2 className="text-2xl font-bold text-white mb-6">Operational Reports</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.slice(5).map((report) => {
-              const Icon = report.icon
-              return (
-                <Link key={report.href} href={report.href}>
-                  <div className="group relative h-full">
-                    <div className={`absolute inset-0 bg-gradient-to-r ${report.colorGradient} rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity`} />
-                    <div className={`relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 ${report.borderColor} transition-all duration-300 hover:shadow-2xl ${report.shadowColor} h-full`}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-bold text-white">{report.title}</h3>
-                          <p className="text-slate-400 text-sm mt-1">
-                            {report.description}
-                          </p>
-                        </div>
-                        <Icon className="h-6 w-6 text-slate-300 flex-shrink-0" />
-                      </div>
-
-                      <div className="space-y-3 mt-4">
-                        <p className="text-xs font-semibold text-slate-400">Key Metrics:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {report.metrics.map((metric, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-block text-xs bg-white/10 text-slate-300 px-2 py-1 rounded border border-white/10"
-                            >
-                              {metric}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center text-blue-400 text-sm font-semibold group-hover:gap-2 transition-all">
-                        View Report
-                        <ArrowRight className="h-4 w-4 ml-1" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Report Guide */}
-        <div className="group relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-white/40 transition-all duration-300">
-            <h3 className="text-xl font-bold text-white mb-4">Report Guide</h3>
-            <p className="text-slate-400 text-sm mb-4">Understanding each report type</p>
-
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold text-white mb-1">Financial Reports</h4>
-                <p className="text-sm text-slate-400">
-                  Track revenue, profitability, cash flow, and financial health. Use these reports to monitor invoices, contracts, and payment collection.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-white mb-1">Operational Reports</h4>
-                <p className="text-sm text-slate-400">
-                  Monitor business operations including client metrics, radio program performance, and SMS campaign effectiveness.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-white mb-1">Data Freshness</h4>
-                <p className="text-sm text-slate-400">
-                  All reports pull real-time data from the database. Some reports may have configurable date ranges for historical analysis.
-                </p>
-              </div>
-            </div>
+            {reports.slice(5).map(renderReportCard)}
           </div>
         </div>
       </div>

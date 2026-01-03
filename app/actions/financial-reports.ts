@@ -10,8 +10,10 @@ import prisma from '@/lib/prisma'
 
 export async function getFinancialSummary() {
   try {
-    const user = await auth()
-    if (!user) throw new Error('Unauthorized')
+    const session = await auth()
+    if (!session?.user?.organizationId) throw new Error('Unauthorized')
+
+    const organizationId = session.user.organizationId
 
     const startDate = new Date()
     startDate.setFullYear(startDate.getFullYear())
@@ -23,12 +25,20 @@ export async function getFinancialSummary() {
     // Fetch all invoices for the period
     const invoices = await prisma.invoice.findMany({
       where: {
-        createdAt: {
+        organizationId,
+        issueDate: {
           gte: startDate,
           lte: endDate,
         },
       },
-      include: { client: true, payments: true },
+      include: {
+        client: true,
+        payments: {
+          select: {
+            amount: true,
+          }
+        }
+      },
     })
 
     // Calculate metrics
@@ -45,7 +55,10 @@ export async function getFinancialSummary() {
     })
 
     const expenseResult = await prisma.expense.aggregate({
-      where: { createdAt: { gte: startDate, lte: endDate } },
+      where: {
+        organizationId,
+        expenseDate: { gte: startDate, lte: endDate }
+      },
       _sum: { amount: true },
     })
 
@@ -82,8 +95,19 @@ export async function getFinancialSummary() {
 
 export async function getPLReport(startDate?: string, endDate?: string, groupBy: string = 'month') {
   try {
-    const user = await auth()
-    if (!user) throw new Error('Unauthorized')
+    const session = await auth()
+    if (!session?.user?.organizationId) throw new Error('Unauthorized')
+
+    const organizationId = session.user.organizationId
+
+    // Fetch organization to get currency
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { currency: true, name: true },
+    })
+
+    const currency = organization?.currency || 'GHS'
+    const organizationName = organization?.name || 'Organization'
 
     const start = startDate
       ? new Date(startDate)
@@ -98,13 +122,19 @@ export async function getPLReport(startDate?: string, endDate?: string, groupBy:
 
     const invoices = await prisma.invoice.findMany({
       where: {
-        createdAt: { gte: start, lte: end },
+        organizationId,
+        issueDate: { gte: start, lte: end },
       },
-      include: { payments: true },
+      select: {
+        id: true,
+        totalAmount: true,
+        issueDate: true,
+      },
     })
 
     const expenses = await prisma.expense.findMany({
       where: {
+        organizationId,
         expenseDate: { gte: start, lte: end },
       },
     })
@@ -113,7 +143,7 @@ export async function getPLReport(startDate?: string, endDate?: string, groupBy:
     const breakdown: Record<string, { revenue: number; expenses: number; profit: number }> = {}
 
     invoices.forEach((inv) => {
-      const date = inv.createdAt
+      const date = inv.issueDate
       const key =
         groupBy === 'month'
           ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -124,7 +154,7 @@ export async function getPLReport(startDate?: string, endDate?: string, groupBy:
     })
 
     expenses.forEach((exp: any) => {
-      const date = exp.createdAt
+      const date = exp.expenseDate
       const key =
         groupBy === 'month'
           ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
@@ -154,6 +184,8 @@ export async function getPLReport(startDate?: string, endDate?: string, groupBy:
 
     return {
       period: { startDate: start.toISOString(), endDate: end.toISOString() },
+      currency,
+      organizationName,
       revenue: { invoices: totalRevenue, total: totalRevenue },
       expenses: {
         total: totalExpensesPL,
@@ -176,11 +208,27 @@ export async function getPLReport(startDate?: string, endDate?: string, groupBy:
 
 export async function getRevenueReport(groupBy: string = 'client') {
   try {
-    const user = await auth()
-    if (!user) throw new Error('Unauthorized')
+    const session = await auth()
+    if (!session?.user?.organizationId) throw new Error('Unauthorized')
+
+    const organizationId = session.user.organizationId
 
     const invoices = await prisma.invoice.findMany({
-      include: { client: true, payments: true },
+      where: {
+        organizationId,
+      },
+      include: {
+        client: {
+          select: {
+            name: true,
+          }
+        },
+        payments: {
+          select: {
+            amount: true,
+          }
+        }
+      },
     })
 
     const totalRevenue = invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0)
@@ -259,13 +307,30 @@ export async function getRevenueReport(groupBy: string = 'client') {
 
 export async function getAgingReport(asOfDate?: string) {
   try {
-    const user = await auth()
-    if (!user) throw new Error('Unauthorized')
+    const session = await auth()
+    if (!session?.user?.organizationId) throw new Error('Unauthorized')
+
+    const organizationId = session.user.organizationId
 
     const today = asOfDate ? new Date(asOfDate) : new Date()
 
     const invoices = await prisma.invoice.findMany({
-      include: { client: true, payments: true },
+      where: {
+        organizationId,
+      },
+      include: {
+        client: {
+          select: {
+            name: true,
+            email: true,
+          }
+        },
+        payments: {
+          select: {
+            amount: true,
+          }
+        }
+      },
     })
 
     // Calculate outstanding amounts
@@ -334,11 +399,27 @@ export async function getAgingReport(asOfDate?: string) {
 
 export async function getContractAnalysis() {
   try {
-    const user = await auth()
-    if (!user) throw new Error('Unauthorized')
+    const session = await auth()
+    if (!session?.user?.organizationId) throw new Error('Unauthorized')
+
+    const organizationId = session.user.organizationId
 
     const contracts = await prisma.contract.findMany({
-      include: { invoices: true, client: true },
+      where: {
+        organizationId,
+      },
+      include: {
+        invoices: {
+          select: {
+            totalAmount: true,
+          }
+        },
+        client: {
+          select: {
+            name: true,
+          }
+        }
+      },
     })
 
     let totalValue = 0

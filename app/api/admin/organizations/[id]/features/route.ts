@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { cookies } from 'next/headers'
 import prisma from '@/lib/prisma'
 
 export async function PUT(
@@ -12,11 +12,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
+    // Check for developer access cookie
+    const cookieStore = await cookies()
+    const devAccessToken = cookieStore.get('dev_access_token')
 
-    // TODO: Add admin role check here
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!devAccessToken || !devAccessToken.value) {
+      return NextResponse.json({ error: 'Unauthorized - Developer access required' }, { status: 401 })
     }
 
     const { enabledFeatures } = await request.json()

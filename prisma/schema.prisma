@@ -18,14 +18,15 @@ model Organization {
   subdomain String? @unique // Optional custom subdomain
 
   // Business Information
-  email   String
-  phone   String?
-  address String?
-  city    String?
-  region  String?
-  country String  @default("Ghana")
-  website String?
-  logo    String?
+  email    String
+  phone    String?
+  address  String?
+  city     String?
+  region   String?
+  country  String  @default("Ghana")
+  currency String  @default("GHS") // ISO 4217 currency code (GHS for Ghana Cedis)
+  website  String?
+  logo     String?
 
   // Registration & Business Details
   businessType       BusinessType @default(RADIO_STATION)
