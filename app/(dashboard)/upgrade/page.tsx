@@ -150,7 +150,7 @@ export default function PricingPage() {
                 </ul>
 
                 {/* CTA Button */}
-                <a href="tel:+233123456789">
+                <a href={`tel:${process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233XXXXXXXXX'}`}>
                   <Button
                     size="lg"
                     className={`w-full ${plan.popular ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-lg shadow-purple-500/30' : 'bg-white/10 hover:bg-white/20 border border-white/20'} font-semibold`}
@@ -182,7 +182,7 @@ export default function PricingPage() {
 
                 <div className="space-y-3">
                   <a
-                    href="tel:+233123456789"
+                    href={`tel:${process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233XXXXXXXXX'}`}
                     className="flex items-center gap-3 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition group"
                   >
                     <div className="bg-green-500/20 p-2 rounded-lg group-hover:bg-green-500/30 transition">
@@ -190,12 +190,12 @@ export default function PricingPage() {
                     </div>
                     <div>
                       <p className="text-sm text-slate-400">Call us</p>
-                      <p className="text-white font-medium">+233 123 456 789</p>
+                      <p className="text-white font-medium">{process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233 XX XXX XXXX'}</p>
                     </div>
                   </a>
 
                   <a
-                    href="https://wa.me/233123456789"
+                    href={`https://wa.me/${(process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233XXXXXXXXX').replace(/[^0-9]/g, '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-3 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition group"
@@ -205,12 +205,12 @@ export default function PricingPage() {
                     </div>
                     <div>
                       <p className="text-sm text-slate-400">WhatsApp</p>
-                      <p className="text-white font-medium">+233 123 456 789</p>
+                      <p className="text-white font-medium">{process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233 XX XXX XXXX'}</p>
                     </div>
                   </a>
 
                   <a
-                    href="mailto:billing@radiomgmt.com"
+                    href={`mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'billing@radio.edtymsys.com'}`}
                     className="flex items-center gap-3 p-4 bg-white/5 rounded-lg hover:bg-white/10 transition group"
                   >
                     <div className="bg-blue-500/20 p-2 rounded-lg group-hover:bg-blue-500/30 transition">
@@ -218,7 +218,7 @@ export default function PricingPage() {
                     </div>
                     <div>
                       <p className="text-sm text-slate-400">Email</p>
-                      <p className="text-white font-medium">billing@radiomgmt.com</p>
+                      <p className="text-white font-medium">{process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'billing@radio.edtymsys.com'}</p>
                     </div>
                   </a>
                 </div>

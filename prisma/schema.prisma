@@ -87,6 +87,7 @@ model Organization {
   // Analytics
   listenerSessions ListenerSession[]
   listenerMetrics  ListenerMetrics[]
+  programRatings   ProgramRating[]
 
   // WhatsApp
   whatsappAccount  WhatsAppAccount?
@@ -700,6 +701,7 @@ model Program {
   songPlayHistory  SongPlayHistory[]
   listenerSessions ListenerSession[]
   listenerMetrics  ListenerMetrics[]
+  ratings          ProgramRating[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1949,6 +1951,38 @@ model ListenerMetrics {
   @@index([organizationId])
   @@index([timestamp])
   @@map("listener_metrics")
+}
+
+// Program ratings
+model ProgramRating {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Program being rated
+  programId String
+  program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  // Rating details
+  rating  Int // 1-5 stars
+  review  String? @db.Text
+
+  // Listener info (optional - for authenticated users)
+  userId String?
+
+  // Anonymous listener info
+  listenerName  String?
+  listenerEmail String?
+  ipAddress     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([programId])
+  @@index([rating])
+  @@index([createdAt])
+  @@map("program_ratings")
 }
 
 // ============================================

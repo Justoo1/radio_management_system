@@ -5,9 +5,9 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingUp, MessageSquare, Send, CheckCircle, AlertCircle, BarChart3, PieChart } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Send, CheckCircle, BarChart3, PieChart } from 'lucide-react'
 
 interface SMSMetrics {
   totalCampaigns: number
@@ -35,81 +35,57 @@ interface HourlyData {
   failed: number
 }
 
+interface StatusBreakdown {
+  status: string
+  count: number
+  percentage: number
+  color: string
+}
+
+interface AnalyticsData {
+  metrics: SMSMetrics
+  campaignAnalytics: CampaignAnalytics[]
+  hourlyData: HourlyData[]
+  statusBreakdown: StatusBreakdown[]
+}
+
 export default function SMSReportPage() {
   const [dateRange, setDateRange] = useState('30days')
+  const [data, setData] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Mock metrics data
-  const metrics: SMSMetrics = {
-    totalCampaigns: 28,
-    totalMessagesSent: 156800,
-    successRate: 94.2,
-    averageResponseRate: 8.5,
-    totalRecipients: 12450,
-    failureRate: 5.8,
-    monthlyGrowth: 15.3,
+  useEffect(() => {
+    fetchAnalytics()
+  }, [])
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/reports/sms')
+      if (response.ok) {
+        const analyticsData = await response.json()
+        setData(analyticsData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch SMS analytics:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Mock campaign analytics data
-  const campaignAnalytics: CampaignAnalytics[] = [
-    {
-      name: 'Summer Promotion 2024',
-      status: 'SENT',
-      messagesSent: 15000,
-      successRate: 96.2,
-      responseRate: 12.3,
-      date: '2024-06-15',
-    },
-    {
-      name: 'New Program Announcement',
-      status: 'SENT',
-      messagesSent: 12500,
-      successRate: 95.8,
-      responseRate: 9.8,
-      date: '2024-06-10',
-    },
-    {
-      name: 'Event Reminder',
-      status: 'SENT',
-      messagesSent: 8200,
-      successRate: 92.1,
-      responseRate: 6.5,
-      date: '2024-06-05',
-    },
-    {
-      name: 'Listener Survey',
-      status: 'PROCESSING',
-      messagesSent: 5600,
-      successRate: 88.3,
-      responseRate: 14.2,
-      date: '2024-06-01',
-    },
-    {
-      name: 'Special Offer',
-      status: 'DRAFT',
-      messagesSent: 0,
-      successRate: 0,
-      responseRate: 0,
-      date: '2024-05-28',
-    },
-  ]
+  // Show loading state
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading SMS analytics...</p>
+        </div>
+      </div>
+    )
+  }
 
-  // Hourly sending pattern
-  const hourlyData: HourlyData[] = [
-    { hour: '6am', sent: 2000, delivered: 1920, failed: 80 },
-    { hour: '9am', sent: 8500, delivered: 8245, failed: 255 },
-    { hour: '12pm', sent: 5200, delivered: 5096, failed: 104 },
-    { hour: '3pm', sent: 6800, delivered: 6596, failed: 204 },
-    { hour: '6pm', sent: 7200, delivered: 6876, failed: 324 },
-    { hour: '9pm', sent: 4100, delivered: 3968, failed: 132 },
-  ]
-
-  // Status breakdown
-  const statusBreakdown = [
-    { status: 'SENT', count: 24, percentage: 86, color: 'bg-emerald-500/30 text-emerald-300' },
-    { status: 'PROCESSING', count: 2, percentage: 7, color: 'bg-amber-500/30 text-amber-300' },
-    { status: 'FAILED', count: 2, percentage: 7, color: 'bg-red-500/30 text-red-300' },
-  ]
-
+  const { metrics, campaignAnalytics, hourlyData, statusBreakdown } = data
   const totalSent = hourlyData.reduce((sum, d) => sum + d.sent, 0)
 
   return (

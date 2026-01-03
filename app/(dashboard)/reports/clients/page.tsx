@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, TrendingUp, Users, DollarSign, BarChart3, PieChart, Calendar } from 'lucide-react'
 
@@ -26,43 +26,64 @@ interface ClientData {
   revenue: number
 }
 
+interface TopClient {
+  name: string
+  status: string
+  campaigns: number
+  revenue: number
+}
+
+interface StatusBreakdown {
+  status: string
+  count: number
+  percentage: number
+  color: string
+}
+
+interface AnalyticsData {
+  metrics: ClientMetrics
+  chartData: ClientData[]
+  topClients: TopClient[]
+  statusBreakdown: StatusBreakdown[]
+}
+
 export default function ClientsReportPage() {
   const [dateRange, setDateRange] = useState('30days')
+  const [data, setData] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Mock metrics data
-  const metrics: ClientMetrics = {
-    totalClients: 124,
-    activeClients: 98,
-    prospectClients: 18,
-    inactiveClients: 8,
-    clientRetention: 92.5,
-    averageClientValue: 4500,
-    monthlyGrowth: 8.5,
+  useEffect(() => {
+    fetchAnalytics()
+  }, [])
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/reports/clients')
+      if (response.ok) {
+        const analyticsData = await response.json()
+        setData(analyticsData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch client analytics:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Mock chart data
-  const chartData: ClientData[] = [
-    { month: 'Jan', newClients: 8, activeClients: 45, revenue: 18000 },
-    { month: 'Feb', newClients: 12, activeClients: 52, revenue: 22000 },
-    { month: 'Mar', newClients: 10, activeClients: 61, revenue: 25500 },
-    { month: 'Apr', newClients: 15, activeClients: 72, revenue: 30000 },
-    { month: 'May', newClients: 18, activeClients: 85, revenue: 35000 },
-    { month: 'Jun', newClients: 14, activeClients: 98, revenue: 39500 },
-  ]
+  // Show loading state
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading client analytics...</p>
+        </div>
+      </div>
+    )
+  }
 
-  const topClients = [
-    { name: 'Light FM Media', status: 'ACTIVE', campaigns: 12, revenue: 8500 },
-    { name: 'Urban Radio Network', status: 'ACTIVE', campaigns: 8, revenue: 7200 },
-    { name: 'Community Voices', status: 'ACTIVE', campaigns: 6, revenue: 6500 },
-    { name: 'Digital Broadcasting Co', status: 'PROSPECT', campaigns: 2, revenue: 2000 },
-    { name: 'Regional Media Group', status: 'INACTIVE', campaigns: 0, revenue: 0 },
-  ]
-
-  const statusBreakdown = [
-    { status: 'ACTIVE', count: metrics.activeClients, percentage: Math.round((metrics.activeClients / metrics.totalClients) * 100), color: 'bg-emerald-500/30 text-emerald-300' },
-    { status: 'PROSPECT', count: metrics.prospectClients, percentage: Math.round((metrics.prospectClients / metrics.totalClients) * 100), color: 'bg-amber-500/30 text-amber-300' },
-    { status: 'INACTIVE', count: metrics.inactiveClients, percentage: Math.round((metrics.inactiveClients / metrics.totalClients) * 100), color: 'bg-slate-500/30 text-slate-300' },
-  ]
+  const { metrics, chartData, topClients, statusBreakdown } = data
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900">

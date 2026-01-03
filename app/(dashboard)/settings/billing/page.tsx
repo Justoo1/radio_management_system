@@ -68,9 +68,9 @@ export default function BillingSettingsPage() {
 
   // Contact information
   const contactInfo = {
-    phone: '+233 123 456 789',
-    whatsapp: '+233 123 456 789',
-    email: 'billing@radiomgmt.com',
+    phone: process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233 XX XXX XXXX',
+    whatsapp: process.env.NEXT_PUBLIC_ADMIN_PHONE || '+233 XX XXX XXXX',
+    email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'billing@radio.edtymsys.com',
   }
 
   if (loading) {

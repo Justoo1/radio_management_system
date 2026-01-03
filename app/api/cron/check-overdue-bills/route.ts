@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       // Send email notification using Resend
       try {
         const contactPhone = process.env.ADMIN_PHONE || '+233 XX XXX XXXX'
-        const contactEmail = process.env.ADMIN_EMAIL || 'billing@radiomgmt.com'
+        const contactEmail = process.env.ADMIN_EMAIL || 'billing@radio.edtymsys.com'
 
         await resend.emails.send({
           from: DEFAULT_FROM_EMAIL,
@@ -130,7 +130,7 @@ Days Overdue: ${notification.daysOverdue}
 
     // Send summary email to admin
     if (notifications.length > 0) {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@radiomgmt.com'
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@radio.edtymsys.com'
       const totalAmount = notifications.reduce((sum, n) => sum + n.billAmount, 0)
 
       console.log(`

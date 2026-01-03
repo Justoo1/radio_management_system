@@ -5,9 +5,9 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, TrendingUp, Radio, Users, Star, BarChart3, LineChart, Calendar } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Radio, Users, Star, BarChart3, LineChart } from 'lucide-react'
 
 interface ProgramMetrics {
   totalPrograms: number
@@ -28,84 +28,62 @@ interface ProgramPerformance {
   genre: string
 }
 
+interface HourlyData {
+  hour: string
+  listeners: number
+}
+
+interface GenreDistribution {
+  genre: string
+  programs: number
+  percentage: number
+  listeners: number
+}
+
+interface AnalyticsData {
+  metrics: ProgramMetrics
+  programPerformance: ProgramPerformance[]
+  hourlyData: HourlyData[]
+  genreDistribution: GenreDistribution[]
+}
+
 export default function ProgramsReportPage() {
   const [dateRange, setDateRange] = useState('30days')
+  const [data, setData] = useState<AnalyticsData | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  // Mock metrics data
-  const metrics: ProgramMetrics = {
-    totalPrograms: 12,
-    activePrograms: 11,
-    totalListeners: 285420,
-    averageRating: 4.5,
-    peakListeningHour: '8:00 AM - 9:00 AM',
-    averageRetention: 85.2,
-    monthlyGrowth: 12.3,
+  useEffect(() => {
+    fetchAnalytics()
+  }, [])
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/reports/programs')
+      if (response.ok) {
+        const analyticsData = await response.json()
+        setData(analyticsData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch program analytics:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // Mock program performance data
-  const programPerformance: ProgramPerformance[] = [
-    {
-      name: 'Morning Drive Time',
-      host: 'John Mensah',
-      listeners: 45230,
-      rating: 4.8,
-      retention: 92,
-      genre: 'Talk/News',
-    },
-    {
-      name: 'Afternoon Vibes',
-      host: 'Sarah Osei',
-      listeners: 38500,
-      rating: 4.6,
-      retention: 88,
-      genre: 'Music',
-    },
-    {
-      name: 'Evening News Hour',
-      host: 'Robert Boafo',
-      listeners: 32100,
-      rating: 4.4,
-      retention: 82,
-      genre: 'News',
-    },
-    {
-      name: 'Late Night Sessions',
-      host: 'DJ Alex',
-      listeners: 28400,
-      rating: 4.3,
-      retention: 78,
-      genre: 'Music',
-    },
-    {
-      name: 'Weekend Specials',
-      host: 'Various',
-      listeners: 21500,
-      rating: 4.2,
-      retention: 75,
-      genre: 'Entertainment',
-    },
-  ]
+  // Show loading state
+  if (loading || !data) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading program analytics...</p>
+        </div>
+      </div>
+    )
+  }
 
-  // Listening patterns by hour
-  const hourlyData = [
-    { hour: '6am', listeners: 12000 },
-    { hour: '7am', listeners: 28000 },
-    { hour: '8am', listeners: 45000 },
-    { hour: '9am', listeners: 42000 },
-    { hour: '12pm', listeners: 28000 },
-    { hour: '3pm', listeners: 35000 },
-    { hour: '6pm', listeners: 32000 },
-    { hour: '9pm', listeners: 22000 },
-  ]
-
-  const genreDistribution = [
-    { genre: 'Music', programs: 5, percentage: 42, listeners: 120200 },
-    { genre: 'News/Talk', programs: 3, percentage: 25, listeners: 77330 },
-    { genre: 'Entertainment', programs: 2, percentage: 17, listeners: 48320 },
-    { genre: 'Sports', programs: 1, percentage: 8, listeners: 22800 },
-    { genre: 'Religious', programs: 1, percentage: 8, listeners: 22800 },
-  ]
-
+  const { metrics, programPerformance, hourlyData, genreDistribution } = data
   const maxListeners = Math.max(...hourlyData.map(d => d.listeners))
 
   return (
