@@ -391,3 +391,74 @@ export async function deactivateOrganization(
     throw error
   }
 }
+
+/**
+ * Get payment history for organization
+ * Returns all payments with invoice details
+ */
+export async function getOrganizationPayments(organizationId: string) {
+  try {
+    const session = await auth()
+    if (!session?.user) {
+      throw new Error('Unauthorized')
+    }
+
+    // Verify user belongs to the organization
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    })
+
+    if (!user || user.organizationId !== organizationId) {
+      throw new Error('Unauthorized to view this organization')
+    }
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+            payments: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        },
+      },
+    })
+
+    if (!organization || !organization.subscription) {
+      return {
+        payments: [],
+        subscription: null,
+      }
+    }
+
+    // Format payments with invoice numbers
+    const payments = organization.subscription.payments.map((payment) => ({
+      id: payment.id,
+      invoiceNumber: `INV-${payment.createdAt.getFullYear()}${String(payment.createdAt.getMonth() + 1).padStart(2, '0')}-${payment.id.substring(0, 8).toUpperCase()}`,
+      amount: parseFloat(payment.amount.toString()),
+      currency: payment.currency,
+      status: payment.status,
+      paymentMethod: payment.paymentMethod,
+      paymentDate: payment.createdAt,
+      referenceNumber: payment.providerPaymentId,
+      network: payment.network,
+      mobileNumber: payment.mobileNumber,
+    }))
+
+    return {
+      payments,
+      subscription: {
+        planName: organization.subscription.plan.name,
+        status: organization.subscription.status,
+        currentPeriodStart: organization.subscription.currentPeriodStart,
+        currentPeriodEnd: organization.subscription.currentPeriodEnd,
+        nextPaymentDate: organization.subscription.nextPaymentDate,
+      },
+    }
+  } catch (error) {
+    console.error('Error getting payment history:', error)
+    throw error
+  }
+}

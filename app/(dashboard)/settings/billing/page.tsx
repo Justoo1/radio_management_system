@@ -6,31 +6,69 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, MessageCircle, Mail, CheckCircle, Clock, CreditCard } from 'lucide-react'
+import { Phone, MessageCircle, Mail, CheckCircle, Clock, CreditCard, Download, FileText, Calendar } from 'lucide-react'
 import { FormSection } from '@/components/settings/form-section'
 import { SettingsCard } from '@/components/settings/settings-card'
 import Link from 'next/link'
 import { getEnabledFeatures } from '@/app/actions/features'
+import { getOrganizationPayments } from '@/app/actions/subscription'
+import { getOrganizationInfo } from '@/app/actions/organization'
 import { FEATURES, Feature, getPremiumFeatures, FeatureDefinition } from '@/lib/features'
 import * as LucideIcons from 'lucide-react'
+
+interface Payment {
+  id: string
+  invoiceNumber: string
+  amount: number
+  currency: string
+  status: string
+  paymentMethod: string
+  paymentDate: Date
+  referenceNumber: string | null
+  network: string | null
+  mobileNumber: string | null
+}
+
+interface Subscription {
+  planName: string
+  status: string
+  currentPeriodStart: Date
+  currentPeriodEnd: Date
+  nextPaymentDate: Date | null
+}
 
 export default function BillingSettingsPage() {
   const [enabledFeatures, setEnabledFeatures] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [payments, setPayments] = useState<Payment[]>([])
+  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
 
-  // Load enabled features
+  // Load enabled features and payment history
   useEffect(() => {
-    const loadFeatures = async () => {
+    const loadData = async () => {
       try {
-        const result = await getEnabledFeatures()
-        setEnabledFeatures(result)
+        // Get enabled features
+        const featuresResult = await getEnabledFeatures()
+        setEnabledFeatures(featuresResult)
+
+        // Get organization
+        const orgResponse = await getOrganizationInfo()
+        if (orgResponse.success && orgResponse.data?.id) {
+          setOrganizationId(orgResponse.data.id)
+
+          // Get payment history
+          const paymentData = await getOrganizationPayments(orgResponse.data.id)
+          setPayments(paymentData.payments)
+          setSubscription(paymentData.subscription)
+        }
       } catch (error) {
-        console.error('Failed to load enabled features:', error)
+        console.error('Failed to load billing data:', error)
       } finally {
         setLoading(false)
       }
     }
-    loadFeatures()
+    loadData()
   }, [])
 
   // Determine current plan based on enabled features
@@ -65,6 +103,64 @@ export default function BillingSettingsPage() {
   }
 
   const currentPlan = getCurrentPlan()
+
+  // Download receipt
+  const handleDownloadInvoice = async (paymentId: string, invoiceNumber: string) => {
+    try {
+      const response = await fetch(`/api/subscription/receipts/${paymentId}`)
+      if (!response.ok) throw new Error('Failed to download receipt')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt-${invoiceNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Error downloading receipt:', error)
+      alert('Failed to download receipt. Please try again.')
+    }
+  }
+
+  // Format payment status
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'COMPLETED':
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-semibold">
+            <CheckCircle className="w-3 h-3" />
+            Paid
+          </span>
+        )
+      case 'PENDING':
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 rounded-full text-xs font-semibold">
+            <Clock className="w-3 h-3" />
+            Pending
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-3 py-1 bg-slate-500/20 text-slate-300 border border-slate-500/30 rounded-full text-xs font-semibold">
+            {status}
+          </span>
+        )
+    }
+  }
+
+  // Format payment method
+  const formatPaymentMethod = (method: string) => {
+    const methodMap: Record<string, string> = {
+      MOBILE_MONEY: 'Mobile Money',
+      BANK_TRANSFER: 'Bank Transfer',
+      CARD: 'Card Payment',
+      CASH: 'Cash',
+    }
+    return methodMap[method] || method
+  }
 
   // Contact information
   const contactInfo = {
@@ -284,6 +380,140 @@ export default function BillingSettingsPage() {
           </div>
         </FormSection>
       </SettingsCard>
+
+      {/* Payment History & Invoices */}
+      {subscription && (
+        <SettingsCard>
+          <FormSection
+            title="Payment History & Invoices"
+            description="View and download your payment receipts and invoices"
+          >
+            {/* Subscription Period */}
+            <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-6 mb-6">
+              <div className="flex items-start gap-3">
+                <Calendar className="w-6 h-6 text-indigo-400 flex-shrink-0 mt-1" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-indigo-300 mb-2">Current Billing Period</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-slate-400 mb-1">Period Start</p>
+                      <p className="text-white font-semibold">
+                        {new Date(subscription.currentPeriodStart).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 mb-1">Period End</p>
+                      <p className="text-white font-semibold">
+                        {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-400 mb-1">Next Payment</p>
+                      <p className="text-white font-semibold">
+                        {subscription.nextPaymentDate
+                          ? new Date(subscription.nextPaymentDate).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Table */}
+            {payments.length > 0 ? (
+              <div className="border border-slate-700/50 rounded-xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-white/5 border-b border-slate-700/50">
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Invoice
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Method
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {payments.map((payment) => (
+                        <tr key={payment.id} className="hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-indigo-400" />
+                              <span className="font-mono text-sm text-white">{payment.invoiceNumber}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {new Date(payment.paymentDate).toLocaleDateString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="font-semibold text-white">
+                              {payment.currency} {payment.amount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                            {formatPaymentMethod(payment.paymentMethod)}
+                            {payment.network && (
+                              <span className="text-xs text-slate-500 ml-1">({payment.network})</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(payment.status)}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={() => handleDownloadInvoice(payment.id, payment.invoiceNumber)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-semibold transition-colors"
+                            >
+                              <Download className="w-4 h-4" />
+                              Download
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-white/5 border border-slate-700/50 rounded-xl">
+                <FileText className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                <p className="text-slate-400 mb-2">No payment history yet</p>
+                <p className="text-sm text-slate-500">
+                  Your payment receipts and invoices will appear here
+                </p>
+              </div>
+            )}
+          </FormSection>
+        </SettingsCard>
+      )}
 
       {/* Pricing Plans */}
       <SettingsCard>

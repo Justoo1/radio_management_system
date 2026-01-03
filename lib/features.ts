@@ -20,6 +20,14 @@ export enum Feature {
   WHATSAPP_INTEGRATION = 'whatsapp_integration',
   EXPENSES = 'expenses',
   ADVANCED_ANALYTICS = 'advanced_analytics',
+
+  // Report Access Features (Premium)
+  REPORT_REVENUE = 'report_revenue',
+  REPORT_CONTRACTS = 'report_contracts',
+  REPORT_AGING = 'report_aging',
+  REPORT_CLIENT_ANALYTICS = 'report_client_analytics',
+  REPORT_PROGRAM_ANALYTICS = 'report_program_analytics',
+  REPORT_SMS_ANALYTICS = 'report_sms_analytics',
 }
 
 export interface FeatureDefinition {
@@ -135,6 +143,54 @@ export const FEATURES: Record<Feature, FeatureDefinition> = {
     icon: 'TrendingUp',
     premium: true,
     route: '/reports/advanced',
+  },
+  [Feature.REPORT_REVENUE]: {
+    key: Feature.REPORT_REVENUE,
+    name: 'Revenue Report',
+    description: 'Access to detailed revenue analytics and reporting',
+    icon: 'DollarSign',
+    premium: true,
+    route: '/reports/financial/revenue',
+  },
+  [Feature.REPORT_CONTRACTS]: {
+    key: Feature.REPORT_CONTRACTS,
+    name: 'Contract Analysis Report',
+    description: 'Access to contract performance and analysis',
+    icon: 'FileSignature',
+    premium: true,
+    route: '/reports/contracts',
+  },
+  [Feature.REPORT_AGING]: {
+    key: Feature.REPORT_AGING,
+    name: 'Invoice Aging Report',
+    description: 'Access to invoice aging and receivables tracking',
+    icon: 'Clock',
+    premium: true,
+    route: '/reports/financial/aging',
+  },
+  [Feature.REPORT_CLIENT_ANALYTICS]: {
+    key: Feature.REPORT_CLIENT_ANALYTICS,
+    name: 'Client Analytics Report',
+    description: 'Access to detailed client behavior and metrics',
+    icon: 'Users',
+    premium: true,
+    route: '/reports/clients',
+  },
+  [Feature.REPORT_PROGRAM_ANALYTICS]: {
+    key: Feature.REPORT_PROGRAM_ANALYTICS,
+    name: 'Program Analytics Report',
+    description: 'Access to program performance analytics',
+    icon: 'Radio',
+    premium: true,
+    route: '/reports/programs',
+  },
+  [Feature.REPORT_SMS_ANALYTICS]: {
+    key: Feature.REPORT_SMS_ANALYTICS,
+    name: 'SMS Analytics Report',
+    description: 'Access to SMS campaign analytics and metrics',
+    icon: 'MessageSquare',
+    premium: true,
+    route: '/reports/sms',
   },
 }
 

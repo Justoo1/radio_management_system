@@ -166,13 +166,19 @@ export default function AdminDashboard() {
             <p className="text-2xl font-bold text-white">{stats.subscriptions.totalActive}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4">
+          <a
+            href="/revenue"
+            className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 hover:border-yellow-500/50 transition-all group"
+          >
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-slate-400">Monthly Revenue</p>
-              <DollarSign className="w-4 h-4 text-yellow-400" />
+              <p className="text-sm text-slate-400 group-hover:text-yellow-300">Monthly Revenue</p>
+              <DollarSign className="w-4 h-4 text-yellow-400 group-hover:scale-110 transition-transform" />
             </div>
             <p className="text-2xl font-bold text-white">GHS {stats.subscriptions.estimatedMonthlyRevenue.toFixed(2)}</p>
-          </div>
+            <p className="text-xs text-yellow-400 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              View Details →
+            </p>
+          </a>
 
           <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">

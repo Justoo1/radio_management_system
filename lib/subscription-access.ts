@@ -14,15 +14,10 @@ export type ReportType =
   | 'programs'
   | 'sms'
 
-export type SubscriptionPlan = 'TRIAL' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
+export type SubscriptionPlan = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
 
 // Define report access per plan
 const REPORT_ACCESS: Record<SubscriptionPlan, ReportType[]> = {
-  TRIAL: [
-    'financial-dashboard',
-    'profit-loss',
-    'expenses',
-  ],
   STARTER: [
     'financial-dashboard',
     'profit-loss',

@@ -16,6 +16,7 @@ import {
   Calendar,
   Activity,
   Loader,
+  Banknote,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -87,6 +88,20 @@ export default function OrganizationDetailsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showDeactivateModal, setShowDeactivateModal] = useState(false)
   const [deactivateReason, setDeactivateReason] = useState('')
+  const [showPlanModal, setShowPlanModal] = useState(false)
+  const [plans, setPlans] = useState<any[]>([])
+  const [selectedPlanId, setSelectedPlanId] = useState('')
+  const [planChangeNotes, setPlanChangeNotes] = useState('')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    paymentMethod: 'MOBILE_MONEY',
+    paymentProvider: 'HUBTEL',
+    mobileNumber: '',
+    network: 'MTN',
+    referenceNumber: '',
+    notes: '',
+  })
 
   useEffect(() => {
     const fetchOrganization = async () => {
@@ -142,6 +157,122 @@ export default function OrganizationDetailsPage() {
     } catch (error) {
       console.error('Error deactivating organization:', error)
       alert('Failed to deactivate organization')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleOpenPlanModal = async () => {
+    try {
+      setActionLoading(true)
+      // Fetch available plans
+      const response = await fetch(`/api/admin/organizations/${organizationId}/plan`)
+      const data = await response.json()
+
+      if (data.success) {
+        setPlans(data.plans)
+        setSelectedPlanId(organization?.subscription?.plan.id || '')
+        setShowPlanModal(true)
+      } else {
+        alert('Failed to fetch subscription plans')
+      }
+    } catch (error) {
+      console.error('Error fetching plans:', error)
+      alert('Failed to fetch subscription plans')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleChangePlan = async () => {
+    if (!selectedPlanId) {
+      alert('Please select a plan')
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await fetch(`/api/admin/organizations/${organizationId}/plan`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planId: selectedPlanId,
+          notes: planChangeNotes,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Refresh organization data
+        const orgResponse = await getOrganizationDetailsAdmin(organizationId)
+        setOrganization(orgResponse.organization)
+        setShowPlanModal(false)
+        setSelectedPlanId('')
+        setPlanChangeNotes('')
+        alert('Subscription plan updated successfully!')
+      } else {
+        alert(data.error || 'Failed to update subscription plan')
+      }
+    } catch (error) {
+      console.error('Error updating plan:', error)
+      alert('Failed to update subscription plan')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleOpenPaymentModal = () => {
+    // Pre-fill amount with subscription plan price
+    if (organization?.subscription?.plan?.price) {
+      setPaymentData((prev) => ({
+        ...prev,
+        amount: organization.subscription!.plan.price.toString(),
+      }))
+    }
+    setShowPaymentModal(true)
+  }
+
+  const handleRecordPayment = async () => {
+    if (!paymentData.amount || parseFloat(paymentData.amount) <= 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId,
+          ...paymentData,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Refresh organization data
+        const orgResponse = await getOrganizationDetailsAdmin(organizationId)
+        setOrganization(orgResponse.organization)
+        setShowPaymentModal(false)
+        setPaymentData({
+          amount: '',
+          paymentMethod: 'MOBILE_MONEY',
+          paymentProvider: 'HUBTEL',
+          mobileNumber: '',
+          network: 'MTN',
+          referenceNumber: '',
+          notes: '',
+        })
+        alert('Payment recorded successfully!')
+      } else {
+        alert(data.error || 'Failed to record payment')
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      alert('Failed to record payment')
     } finally {
       setActionLoading(false)
     }
@@ -219,6 +350,22 @@ export default function OrganizationDetailsPage() {
         </span>
 
         <div className="flex gap-2 ml-auto">
+          <button
+            onClick={handleOpenPaymentModal}
+            disabled={actionLoading}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+          >
+            Record Payment
+          </button>
+
+          <button
+            onClick={handleOpenPlanModal}
+            disabled={actionLoading}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+          >
+            Change Plan
+          </button>
+
           <Link
             href={`/organizations/${organizationId}/features`}
             className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"
@@ -447,6 +594,256 @@ export default function OrganizationDetailsPage() {
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
               >
                 {actionLoading ? 'Suspending...' : 'Suspend'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Change Plan Modal */}
+      {showPlanModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <Calendar className="w-6 h-6 text-blue-400" />
+              <h2 className="text-xl font-bold text-white">Change Subscription Plan</h2>
+            </div>
+
+            <p className="text-slate-400 mb-4">
+              Select a new subscription plan for {organization.name}
+            </p>
+
+            {/* Current Plan */}
+            {organization.subscription && (
+              <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                <p className="text-sm text-slate-400">Current Plan</p>
+                <p className="font-semibold text-white">
+                  {organization.subscription.plan.name} - GHS{' '}
+                  {organization.subscription.plan.price}/month
+                </p>
+              </div>
+            )}
+
+            {/* Plan Selection */}
+            <div className="mb-4 space-y-3">
+              <label className="block text-sm font-semibold text-white mb-2">
+                Select New Plan
+              </label>
+              {plans.map((plan) => (
+                <div
+                  key={plan.id}
+                  onClick={() => setSelectedPlanId(plan.id)}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedPlanId === plan.id
+                      ? 'border-blue-500 bg-blue-500/10'
+                      : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-bold text-white text-lg">{plan.name}</h3>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-white">
+                        GHS {plan.price}
+                      </p>
+                      <p className="text-xs text-slate-400">per month</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-400 mb-3">{plan.description}</p>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="text-slate-300">
+                      <span className="text-slate-500">Users:</span> {plan.maxUsers}
+                    </div>
+                    <div className="text-slate-300">
+                      <span className="text-slate-500">Clients:</span> {plan.maxClients}
+                    </div>
+                    <div className="text-slate-300">
+                      <span className="text-slate-500">SMS/month:</span> {plan.maxSMSPerMonth}
+                    </div>
+                    <div className="text-slate-300">
+                      <span className="text-slate-500">Storage:</span> {plan.maxStorageGB}GB
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Notes */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold text-white mb-2">
+                Notes (Optional)
+              </label>
+              <textarea
+                value={planChangeNotes}
+                onChange={(e) => setPlanChangeNotes(e.target.value)}
+                placeholder="e.g., Upgraded due to growth, Client request, etc."
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPlanModal(false)
+                  setSelectedPlanId('')
+                  setPlanChangeNotes('')
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleChangePlan}
+                disabled={actionLoading || !selectedPlanId}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Updating...' : 'Update Plan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <Banknote className="w-6 h-6 text-green-400" />
+              <h2 className="text-xl font-bold text-white">Record Payment</h2>
+            </div>
+
+            <p className="text-slate-400 mb-4">
+              Record a subscription payment for {organization.name}
+            </p>
+
+            {/* Payment Form */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Amount (GHS)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={paymentData.amount}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, amount: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Payment Method
+                </label>
+                <select
+                  value={paymentData.paymentMethod}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, paymentMethod: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
+                >
+                  <option value="MOBILE_MONEY">Mobile Money</option>
+                  <option value="BANK_TRANSFER">Bank Transfer</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Card</option>
+                </select>
+              </div>
+
+              {paymentData.paymentMethod === 'MOBILE_MONEY' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-semibold text-white mb-2">
+                      Network
+                    </label>
+                    <select
+                      value={paymentData.network}
+                      onChange={(e) =>
+                        setPaymentData({ ...paymentData, network: e.target.value })
+                      }
+                      className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
+                    >
+                      <option value="MTN">MTN Mobile Money</option>
+                      <option value="VODAFONE">Vodafone Cash</option>
+                      <option value="AIRTELTIGO">AirtelTigo Money</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-white mb-2">
+                      Mobile Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={paymentData.mobileNumber}
+                      onChange={(e) =>
+                        setPaymentData({ ...paymentData, mobileNumber: e.target.value })
+                      }
+                      placeholder="0XX XXX XXXX"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Reference Number (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={paymentData.referenceNumber}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, referenceNumber: e.target.value })
+                  }
+                  placeholder="Transaction reference"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={paymentData.notes}
+                  onChange={(e) =>
+                    setPaymentData({ ...paymentData, notes: e.target.value })
+                  }
+                  placeholder="Additional notes about this payment"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowPaymentModal(false)
+                  setPaymentData({
+                    amount: '',
+                    paymentMethod: 'MOBILE_MONEY',
+                    paymentProvider: 'HUBTEL',
+                    mobileNumber: '',
+                    network: 'MTN',
+                    referenceNumber: '',
+                    notes: '',
+                  })
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRecordPayment}
+                disabled={actionLoading || !paymentData.amount}
+                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              >
+                {actionLoading ? 'Recording...' : 'Record Payment'}
               </button>
             </div>
           </div>

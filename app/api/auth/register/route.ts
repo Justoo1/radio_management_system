@@ -32,36 +32,38 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = await hash(validatedData.password, 10)
 
-    // Create transaction to create organization, default role, user, and pro plan subscription
+    // Create transaction to create organization, default role, user, and starter plan subscription
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      // Get or create the Pro plan
-      let proPlan = await tx.subscriptionPlan.findUnique({
-        where: { name: 'Professional' },
+      // Get the Starter plan for trial period
+      let starterPlan = await tx.subscriptionPlan.findUnique({
+        where: { name: 'Starter' },
       })
 
-      if (!proPlan) {
-        proPlan = await tx.subscriptionPlan.create({
+      if (!starterPlan) {
+        // If Starter plan doesn't exist, create it
+        starterPlan = await tx.subscriptionPlan.create({
           data: {
-            name: 'Professional',
-            description: 'Professional plan with advanced features',
+            name: 'Starter',
+            description: 'Perfect for small radio stations getting started',
             price: '500',
             currency: 'GHS',
             billingInterval: 'MONTHLY',
-            maxUsers: 50,
-            maxClients: 500,
-            maxSMSPerMonth: 5000,
-            maxStorageGB: 50,
-            maxPrograms: 200,
+            maxUsers: 5,
+            maxClients: 100,
+            maxSMSPerMonth: 500,
+            maxStorageGB: 5,
+            maxPrograms: 50,
             features: JSON.stringify([
-              'Unlimited programs',
-              'Advanced analytics',
-              'Priority support',
-              'Custom integrations',
-              'Team management',
+              'Client Management',
+              'Program Scheduling',
+              'Live On-Air Dashboard',
+              'Invoices & Contracts',
+              'Expense Tracking',
+              'Basic Reports',
             ]),
-            isPopular: true,
+            isPopular: false,
             isActive: true,
-            sortOrder: 2,
+            sortOrder: 1,
           },
         })
       }
@@ -84,10 +86,10 @@ export async function POST(req: NextRequest) {
         },
       })
 
-      // Create Pro plan subscription with 30-day trial
+      // Create Starter plan subscription with 30-day trial
       const subscription = await tx.subscription.create({
         data: {
-          planId: proPlan.id,
+          planId: starterPlan.id,
           status: 'TRIALING',
           currentPeriodStart: new Date(),
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
       })
 
       // Update organization with subscription reference
-      const organizationWithSubscription = await tx.organization.update({
+      await tx.organization.update({
         where: { id: tempOrganization.id },
         data: {
           subscriptionId: subscription.id,
