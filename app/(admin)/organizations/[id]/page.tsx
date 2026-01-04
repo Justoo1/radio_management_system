@@ -321,25 +321,25 @@ export default function OrganizationDetailsPage() {
   )
 
   return (
-    <div className="space-y-8 p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 p-3 sm:p-6 max-w-7xl mx-auto">
       {/* Header with Back Button */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
         <Link
           href="/"
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
         >
           <ArrowLeft className="w-5 h-5 text-slate-400" />
         </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-white">{organization.name}</h1>
-          <p className="text-slate-400">{organization.email}</p>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">{organization.name}</h1>
+          <p className="text-sm sm:text-base text-slate-400 truncate">{organization.email}</p>
         </div>
       </div>
 
       {/* Status and Action Buttons */}
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-col gap-4">
         <span
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm ${getStatusColor(
+          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm w-fit ${getStatusColor(
             organization.status
           )}`}
         >
@@ -349,11 +349,11 @@ export default function OrganizationDetailsPage() {
           {organization.status}
         </span>
 
-        <div className="flex gap-2 ml-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2">
           <button
             onClick={handleOpenPaymentModal}
             disabled={actionLoading}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
           >
             Record Payment
           </button>
@@ -361,14 +361,14 @@ export default function OrganizationDetailsPage() {
           <button
             onClick={handleOpenPlanModal}
             disabled={actionLoading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
           >
             Change Plan
           </button>
 
           <Link
             href={`/organizations/${organizationId}/features`}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors text-center text-sm"
           >
             Manage Features
           </Link>
@@ -377,7 +377,7 @@ export default function OrganizationDetailsPage() {
             <button
               onClick={handleActivate}
               disabled={actionLoading}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
             >
               {actionLoading ? 'Processing...' : 'Activate'}
             </button>
@@ -386,7 +386,7 @@ export default function OrganizationDetailsPage() {
           {organization.status !== 'SUSPENDED' && (
             <button
               onClick={() => setShowDeactivateModal(true)}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors text-sm"
             >
               Suspend
             </button>
@@ -395,33 +395,33 @@ export default function OrganizationDetailsPage() {
       </div>
 
       {/* Organization Info Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
         {/* Owner Info */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-400" />
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
             Organization Owner
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <div>
-              <p className="text-sm text-slate-400 mb-1">Name</p>
-              <p className="font-semibold text-white">
+              <p className="text-xs sm:text-sm text-slate-400 mb-1">Name</p>
+              <p className="font-semibold text-white text-sm sm:text-base break-words">
                 {organization.owner?.name || 'N/A'}
               </p>
             </div>
             <div>
-              <p className="text-sm text-slate-400 mb-1">Email</p>
-              <p className="font-semibold text-white">{organization.owner?.email}</p>
+              <p className="text-xs sm:text-sm text-slate-400 mb-1">Email</p>
+              <p className="font-semibold text-white text-sm sm:text-base break-all">{organization.owner?.email}</p>
             </div>
             {organization.owner?.phone && (
               <div>
-                <p className="text-sm text-slate-400 mb-1">Phone</p>
-                <p className="font-semibold text-white">{organization.owner.phone}</p>
+                <p className="text-xs sm:text-sm text-slate-400 mb-1">Phone</p>
+                <p className="font-semibold text-white text-sm sm:text-base">{organization.owner.phone}</p>
               </div>
             )}
             <div>
-              <p className="text-sm text-slate-400 mb-1">Registered</p>
-              <p className="font-semibold text-white">
+              <p className="text-xs sm:text-sm text-slate-400 mb-1">Registered</p>
+              <p className="font-semibold text-white text-sm sm:text-base">
                 {new Date(organization.owner?.createdAt || '').toLocaleDateString()}
               </p>
             </div>
@@ -429,15 +429,15 @@ export default function OrganizationDetailsPage() {
         </div>
 
         {/* Trial/Subscription Info */}
-        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-indigo-400" />
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
             Trial & Subscription
           </h2>
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             <div>
-              <p className="text-sm text-slate-400 mb-1">Trial End Date</p>
-              <p className="font-semibold text-white">
+              <p className="text-xs sm:text-sm text-slate-400 mb-1">Trial End Date</p>
+              <p className="font-semibold text-white text-sm sm:text-base">
                 {new Date(organization.trialEndDate).toLocaleDateString()}
               </p>
               <p className="text-xs text-slate-500 mt-1">
@@ -449,21 +449,21 @@ export default function OrganizationDetailsPage() {
             {organization.subscription && (
               <>
                 <div>
-                  <p className="text-sm text-slate-400 mb-1">Plan</p>
-                  <p className="font-semibold text-white">
+                  <p className="text-xs sm:text-sm text-slate-400 mb-1">Plan</p>
+                  <p className="font-semibold text-white text-sm sm:text-base">
                     {organization.subscription.plan.name} - GHS{' '}
                     {organization.subscription.plan.price}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-400 mb-1">Subscription Status</p>
-                  <p className="font-semibold text-white">
+                  <p className="text-xs sm:text-sm text-slate-400 mb-1">Subscription Status</p>
+                  <p className="font-semibold text-white text-sm sm:text-base">
                     {organization.subscription.status}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-400 mb-1">Period End</p>
-                  <p className="font-semibold text-white">
+                  <p className="text-xs sm:text-sm text-slate-400 mb-1">Period End</p>
+                  <p className="font-semibold text-white text-sm sm:text-base">
                     {new Date(
                       organization.subscription.currentPeriodEnd
                     ).toLocaleDateString()}
@@ -476,122 +476,124 @@ export default function OrganizationDetailsPage() {
       </div>
 
       {/* Users in Organization */}
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <User className="w-5 h-5 text-indigo-400" />
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+          <User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
           Team Members ({organization.users.length})
         </h2>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-slate-700/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300">
-                  Joined
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {organization.users.map((user) => (
-                <tr key={user.id} className="hover:bg-white/5">
-                  <td className="px-4 py-3 text-sm text-white font-semibold">
-                    {user.name || 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-300">{user.email}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span
-                      className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                        user.status === 'ACTIVE'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-slate-500/20 text-slate-300'
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-slate-400">
-                    {new Date(user.createdAt).toLocaleDateString()}
-                  </td>
+        <div className="overflow-x-auto -mx-4 sm:mx-0">
+          <div className="inline-block min-w-full align-middle px-4 sm:px-0">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-slate-700/50">
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-300">
+                    Name
+                  </th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-300">
+                    Email
+                  </th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-300">
+                    Status
+                  </th>
+                  <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-slate-300 hidden sm:table-cell">
+                    Joined
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-700/50">
+                {organization.users.map((user) => (
+                  <tr key={user.id} className="hover:bg-white/5">
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-white font-semibold">
+                      {user.name || 'N/A'}
+                    </td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-300 break-all">{user.email}</td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm">
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                          user.status === 'ACTIVE'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-slate-500/20 text-slate-300'
+                        }`}
+                      >
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-400 hidden sm:table-cell">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {/* Activity Log */}
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-indigo-400" />
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+        <h2 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4 flex items-center gap-2">
+          <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" />
           Recent Activity
         </h2>
 
-        <div className="space-y-3">
+        <div className="space-y-2 sm:space-y-3">
           {organization.activityLogs.length > 0 ? (
             organization.activityLogs.map((log) => (
-              <div key={log.id} className="flex gap-3 p-3 bg-white/5 rounded-lg">
-                <div className="flex-1">
-                  <p className="font-semibold text-white text-sm">{log.action}</p>
-                  <p className="text-xs text-slate-400 mt-1">{log.description}</p>
+              <div key={log.id} className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-3 bg-white/5 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-white text-xs sm:text-sm break-words">{log.action}</p>
+                  <p className="text-xs text-slate-400 mt-1 break-words">{log.description}</p>
                 </div>
-                <div className="text-xs text-slate-500">
-                  {new Date(log.createdAt).toLocaleDateString()} at{' '}
-                  {new Date(log.createdAt).toLocaleTimeString()}
+                <div className="text-xs text-slate-500 sm:text-right flex-shrink-0">
+                  <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                  <div className="hidden sm:block">{new Date(log.createdAt).toLocaleTimeString()}</div>
                 </div>
               </div>
             ))
           ) : (
-            <p className="text-slate-400 text-sm">No activity recorded yet</p>
+            <p className="text-slate-400 text-xs sm:text-sm">No activity recorded yet</p>
           )}
         </div>
       </div>
 
       {/* Deactivate Modal */}
       {showDeactivateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-md w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="w-6 h-6 text-red-400" />
-              <h2 className="text-xl font-bold text-white">Suspend Organization</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 flex-shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Suspend Organization</h2>
             </div>
 
-            <p className="text-slate-400 mb-4">
+            <p className="text-sm sm:text-base text-slate-400 mb-4">
               Are you sure you want to suspend {organization.name}? This will temporarily prevent access to the platform.
             </p>
 
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-white mb-2">
+              <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                 Reason for Suspension
               </label>
               <textarea
                 value={deactivateReason}
                 onChange={(e) => setDeactivateReason(e.target.value)}
                 placeholder="e.g., Non-payment, Terms violation, etc."
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 outline-none"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-red-500 outline-none"
                 rows={3}
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={() => setShowDeactivateModal(false)}
-                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeactivate}
                 disabled={actionLoading || !deactivateReason.trim()}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
               >
                 {actionLoading ? 'Suspending...' : 'Suspend'}
               </button>
@@ -602,22 +604,22 @@ export default function OrganizationDetailsPage() {
 
       {/* Change Plan Modal */}
       {showPlanModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center gap-3 mb-4">
-              <Calendar className="w-6 h-6 text-blue-400" />
-              <h2 className="text-xl font-bold text-white">Change Subscription Plan</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400 flex-shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Change Subscription Plan</h2>
             </div>
 
-            <p className="text-slate-400 mb-4">
+            <p className="text-sm sm:text-base text-slate-400 mb-4">
               Select a new subscription plan for {organization.name}
             </p>
 
             {/* Current Plan */}
             {organization.subscription && (
               <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                <p className="text-sm text-slate-400">Current Plan</p>
-                <p className="font-semibold text-white">
+                <p className="text-xs sm:text-sm text-slate-400">Current Plan</p>
+                <p className="font-semibold text-white text-sm sm:text-base">
                   {organization.subscription.plan.name} - GHS{' '}
                   {organization.subscription.plan.price}/month
                 </p>
@@ -625,30 +627,30 @@ export default function OrganizationDetailsPage() {
             )}
 
             {/* Plan Selection */}
-            <div className="mb-4 space-y-3">
-              <label className="block text-sm font-semibold text-white mb-2">
+            <div className="mb-4 space-y-2 sm:space-y-3">
+              <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                 Select New Plan
               </label>
               {plans.map((plan) => (
                 <div
                   key={plan.id}
                   onClick={() => setSelectedPlanId(plan.id)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  className={`p-3 sm:p-4 border rounded-lg cursor-pointer transition-all ${
                     selectedPlanId === plan.id
                       ? 'border-blue-500 bg-blue-500/10'
                       : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-white text-lg">{plan.name}</h3>
+                    <h3 className="font-bold text-white text-base sm:text-lg">{plan.name}</h3>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-white">
+                      <p className="text-lg sm:text-2xl font-bold text-white">
                         GHS {plan.price}
                       </p>
                       <p className="text-xs text-slate-400">per month</p>
                     </div>
                   </div>
-                  <p className="text-sm text-slate-400 mb-3">{plan.description}</p>
+                  <p className="text-xs sm:text-sm text-slate-400 mb-2 sm:mb-3">{plan.description}</p>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="text-slate-300">
                       <span className="text-slate-500">Users:</span> {plan.maxUsers}
@@ -669,33 +671,33 @@ export default function OrganizationDetailsPage() {
 
             {/* Notes */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-white mb-2">
+              <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                 Notes (Optional)
               </label>
               <textarea
                 value={planChangeNotes}
                 onChange={(e) => setPlanChangeNotes(e.target.value)}
                 placeholder="e.g., Upgraded due to growth, Client request, etc."
-                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 outline-none"
                 rows={3}
               />
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   setShowPlanModal(false)
                   setSelectedPlanId('')
                   setPlanChangeNotes('')
                 }}
-                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleChangePlan}
                 disabled={actionLoading || !selectedPlanId}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
               >
                 {actionLoading ? 'Updating...' : 'Update Plan'}
               </button>
@@ -706,21 +708,21 @@ export default function OrganizationDetailsPage() {
 
       {/* Record Payment Modal */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full">
-            <div className="flex items-center gap-3 mb-4">
-              <Banknote className="w-6 h-6 text-green-400" />
-              <h2 className="text-xl font-bold text-white">Record Payment</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 sm:p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Banknote className="w-5 h-5 sm:w-6 sm:h-6 text-green-400 flex-shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Record Payment</h2>
             </div>
 
-            <p className="text-slate-400 mb-4">
+            <p className="text-sm sm:text-base text-slate-400 mb-4">
               Record a subscription payment for {organization.name}
             </p>
 
             {/* Payment Form */}
-            <div className="space-y-4 mb-6">
+            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                   Amount (GHS)
                 </label>
                 <input
@@ -731,12 +733,12 @@ export default function OrganizationDetailsPage() {
                     setPaymentData({ ...paymentData, amount: e.target.value })
                   }
                   placeholder="0.00"
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                   Payment Method
                 </label>
                 <select
@@ -744,7 +746,7 @@ export default function OrganizationDetailsPage() {
                   onChange={(e) =>
                     setPaymentData({ ...paymentData, paymentMethod: e.target.value })
                   }
-                  className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
+                  className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-sm text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
                 >
                   <option value="MOBILE_MONEY">Mobile Money</option>
                   <option value="BANK_TRANSFER">Bank Transfer</option>
@@ -756,7 +758,7 @@ export default function OrganizationDetailsPage() {
               {paymentData.paymentMethod === 'MOBILE_MONEY' && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-white mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                       Network
                     </label>
                     <select
@@ -764,7 +766,7 @@ export default function OrganizationDetailsPage() {
                       onChange={(e) =>
                         setPaymentData({ ...paymentData, network: e.target.value })
                       }
-                      className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
+                      className="w-full px-3 py-2 bg-slate-800 border border-white/20 rounded-lg text-sm text-white focus:ring-2 focus:ring-green-500 outline-none [&>option]:bg-slate-800 [&>option]:text-white"
                     >
                       <option value="MTN">MTN Mobile Money</option>
                       <option value="VODAFONE">Vodafone Cash</option>
@@ -773,7 +775,7 @@ export default function OrganizationDetailsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-white mb-2">
+                    <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                       Mobile Number
                     </label>
                     <input
@@ -783,14 +785,14 @@ export default function OrganizationDetailsPage() {
                         setPaymentData({ ...paymentData, mobileNumber: e.target.value })
                       }
                       placeholder="0XX XXX XXXX"
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
                     />
                   </div>
                 </>
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                   Reference Number (Optional)
                 </label>
                 <input
@@ -800,12 +802,12 @@ export default function OrganizationDetailsPage() {
                     setPaymentData({ ...paymentData, referenceNumber: e.target.value })
                   }
                   placeholder="Transaction reference"
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
                   Notes (Optional)
                 </label>
                 <textarea
@@ -814,13 +816,13 @@ export default function OrganizationDetailsPage() {
                     setPaymentData({ ...paymentData, notes: e.target.value })
                   }
                   placeholder="Additional notes about this payment"
-                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-green-500 outline-none"
                   rows={3}
                 />
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   setShowPaymentModal(false)
@@ -834,14 +836,14 @@ export default function OrganizationDetailsPage() {
                     notes: '',
                   })
                 }}
-                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRecordPayment}
                 disabled={actionLoading || !paymentData.amount}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
+                className="w-full sm:flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
               >
                 {actionLoading ? 'Recording...' : 'Record Payment'}
               </button>

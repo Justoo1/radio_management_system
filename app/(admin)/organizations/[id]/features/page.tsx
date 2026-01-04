@@ -124,9 +124,9 @@ export default function OrganizationFeaturesPage() {
   const premiumFeatures = getPremiumFeatures()
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-3 sm:p-6">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6 sm:mb-8">
         <Button
           variant="outline"
           onClick={() => router.back()}
@@ -136,12 +136,12 @@ export default function OrganizationFeaturesPage() {
           Back
         </Button>
 
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">
               Manage Features
             </h1>
-            <p className="text-slate-400">
+            <p className="text-sm sm:text-base text-slate-400 break-words">
               {organization.name} ({organization.email})
             </p>
             <div className="mt-2">
@@ -157,11 +157,11 @@ export default function OrganizationFeaturesPage() {
             </div>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Button
               onClick={enableAllPremium}
               variant="outline"
-              className="border-green-500/50 text-green-400 hover:bg-green-500/10"
+              className="w-full sm:w-auto border-green-500/50 text-green-400 hover:bg-green-500/10 text-sm"
             >
               <Unlock className="w-4 h-4 mr-2" />
               Enable All Premium
@@ -169,7 +169,7 @@ export default function OrganizationFeaturesPage() {
             <Button
               onClick={disableAllPremium}
               variant="outline"
-              className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+              className="w-full sm:w-auto border-red-500/50 text-red-400 hover:bg-red-500/10 text-sm"
             >
               <Lock className="w-4 h-4 mr-2" />
               Disable All Premium
@@ -177,7 +177,7 @@ export default function OrganizationFeaturesPage() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-sm"
             >
               <Save className="w-4 h-4 mr-2" />
               {saving ? 'Saving...' : 'Save Changes'}
@@ -188,22 +188,22 @@ export default function OrganizationFeaturesPage() {
 
       {/* Core Features (Always Enabled) */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold text-white mb-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-4">
           Core Features (Always Enabled)
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {coreFeatures.map((feature) => (
             <div
               key={feature.key}
-              className="bg-white/5 backdrop-blur-xl rounded-xl p-6 border border-white/10"
+              className="bg-white/5 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/10"
             >
               <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-white">{feature.name}</h3>
-                <div className="bg-green-500/20 p-2 rounded-lg">
-                  <Check className="w-5 h-5 text-green-400" />
+                <h3 className="font-semibold text-white text-sm sm:text-base">{feature.name}</h3>
+                <div className="bg-green-500/20 p-2 rounded-lg flex-shrink-0">
+                  <Check className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                 </div>
               </div>
-              <p className="text-slate-400 text-sm">{feature.description}</p>
+              <p className="text-slate-400 text-xs sm:text-sm">{feature.description}</p>
             </div>
           ))}
         </div>
@@ -211,17 +211,17 @@ export default function OrganizationFeaturesPage() {
 
       {/* Premium Features (Can be Locked) */}
       <div>
-        <h2 className="text-xl font-semibold text-white mb-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-4">
           Premium Features (Admin Controlled)
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {premiumFeatures.map((feature) => {
             const isEnabled = enabledFeatures.includes(feature.key)
 
             return (
               <div
                 key={feature.key}
-                className={`bg-white/5 backdrop-blur-xl rounded-xl p-6 border transition-all cursor-pointer ${
+                className={`bg-white/5 backdrop-blur-xl rounded-xl p-4 sm:p-6 border transition-all cursor-pointer ${
                   isEnabled
                     ? 'border-green-500/50 shadow-lg shadow-green-500/20'
                     : 'border-white/10 hover:border-white/20'
@@ -229,23 +229,23 @@ export default function OrganizationFeaturesPage() {
                 onClick={() => toggleFeature(feature.key)}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-white">{feature.name}</h3>
+                  <h3 className="font-semibold text-white text-sm sm:text-base">{feature.name}</h3>
                   <button
-                    className={`p-2 rounded-lg transition-colors ${
+                    className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
                       isEnabled
                         ? 'bg-green-500/20 hover:bg-green-500/30'
                         : 'bg-red-500/20 hover:bg-red-500/30'
                     }`}
                   >
                     {isEnabled ? (
-                      <Unlock className="w-5 h-5 text-green-400" />
+                      <Unlock className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                     ) : (
-                      <Lock className="w-5 h-5 text-red-400" />
+                      <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
                     )}
                   </button>
                 </div>
-                <p className="text-slate-400 text-sm mb-3">{feature.description}</p>
-                <div className="flex items-center gap-2 text-xs">
+                <p className="text-slate-400 text-xs sm:text-sm mb-3">{feature.description}</p>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className={`px-2 py-1 rounded-full ${
                     isEnabled
                       ? 'bg-green-500/20 text-green-400'
@@ -253,7 +253,8 @@ export default function OrganizationFeaturesPage() {
                   }`}>
                     {isEnabled ? 'Enabled' : 'Locked'}
                   </span>
-                  <span className="text-slate-500">Click to toggle</span>
+                  <span className="text-slate-500 hidden sm:inline">Click to toggle</span>
+                  <span className="text-slate-500 sm:hidden">Tap to toggle</span>
                 </div>
               </div>
             )
@@ -262,22 +263,22 @@ export default function OrganizationFeaturesPage() {
       </div>
 
       {/* Summary */}
-      <div className="mt-8 bg-white/5 backdrop-blur-xl rounded-xl p-6 border border-white/10">
-        <h3 className="text-lg font-semibold text-white mb-4">Summary</h3>
-        <div className="grid grid-cols-3 gap-6">
+      <div className="mt-6 sm:mt-8 bg-white/5 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/10">
+        <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Summary</h3>
+        <div className="grid grid-cols-3 gap-3 sm:gap-6">
           <div>
-            <p className="text-slate-400 text-sm mb-1">Core Features</p>
-            <p className="text-2xl font-bold text-white">{coreFeatures.length}</p>
+            <p className="text-slate-400 text-xs sm:text-sm mb-1">Core Features</p>
+            <p className="text-xl sm:text-2xl font-bold text-white">{coreFeatures.length}</p>
           </div>
           <div>
-            <p className="text-slate-400 text-sm mb-1">Premium Enabled</p>
-            <p className="text-2xl font-bold text-green-400">
+            <p className="text-slate-400 text-xs sm:text-sm mb-1">Premium Enabled</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-400">
               {enabledFeatures.filter(f => premiumFeatures.some(pf => pf.key === f)).length}
             </p>
           </div>
           <div>
-            <p className="text-slate-400 text-sm mb-1">Premium Locked</p>
-            <p className="text-2xl font-bold text-red-400">
+            <p className="text-slate-400 text-xs sm:text-sm mb-1">Premium Locked</p>
+            <p className="text-xl sm:text-2xl font-bold text-red-400">
               {premiumFeatures.length - enabledFeatures.filter(f => premiumFeatures.some(pf => pf.key === f)).length}
             </p>
           </div>
