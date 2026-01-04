@@ -20,6 +20,7 @@ export enum Feature {
   WHATSAPP_INTEGRATION = 'whatsapp_integration',
   EXPENSES = 'expenses',
   ADVANCED_ANALYTICS = 'advanced_analytics',
+  LISTENER_TRACKING = 'listener_tracking',
 
   // Report Access Features (Premium)
   REPORT_REVENUE = 'report_revenue',
@@ -191,6 +192,14 @@ export const FEATURES: Record<Feature, FeatureDefinition> = {
     icon: 'MessageSquare',
     premium: true,
     route: '/reports/sms',
+  },
+  [Feature.LISTENER_TRACKING]: {
+    key: Feature.LISTENER_TRACKING,
+    name: 'Listener Tracking',
+    description: 'Track listener engagement and analytics',
+    icon: 'Users',
+    premium: true,
+    route: '/listeners',
   },
 }
 

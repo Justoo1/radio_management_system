@@ -15,6 +15,7 @@ import {
   Users2,
   Settings,
   LucideIcon,
+  Activity,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -145,6 +146,25 @@ export const dashboardNav: NavItem[] = [
       {
         href: '/reports/programs',
         label: 'Programs',
+      },
+    ],
+  },
+  {
+    href: '/listeners',
+    label: 'Listeners',
+    icon: Activity,
+    children: [
+      {
+        href: '/listeners',
+        label: 'Overview',
+      },
+      {
+        href: '/listeners/sessions',
+        label: 'Sessions',
+      },
+      {
+        href: '/listeners/metrics',
+        label: 'Metrics',
       },
     ],
   },

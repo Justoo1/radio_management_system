@@ -232,19 +232,19 @@ export default function OnAirDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6">
+    <div className="min-h-screen bg-slate-950 p-3 sm:p-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl shadow-lg">
-              <Radio className="w-8 h-8 text-white" />
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
+            <div className="p-2 sm:p-3 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl shadow-lg flex-shrink-0">
+              <Radio className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white mb-1">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-1 truncate">
                 Live On-Air Dashboard
               </h1>
-              <p className="text-slate-400">
+              <p className="text-slate-400 text-sm sm:text-base hidden sm:block">
                 Manage your broadcast schedule and day-to-day programming
               </p>
             </div>
@@ -252,7 +252,7 @@ export default function OnAirDashboard() {
 
           {/* Connection Status */}
           <div
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg flex-shrink-0 ${
               isConnected
                 ? 'bg-green-600/20 text-green-400 border border-green-600/30'
                 : 'bg-red-600/20 text-red-400 border border-red-600/30'
@@ -260,13 +260,13 @@ export default function OnAirDashboard() {
           >
             {isConnected ? (
               <>
-                <Wifi className="w-5 h-5" />
-                <span className="font-medium">Connected</span>
+                <Wifi className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-sm sm:text-base">Connected</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-5 h-5" />
-                <span className="font-medium">Disconnected</span>
+                <WifiOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-sm sm:text-base">Disconnected</span>
               </>
             )}
           </div>
@@ -274,9 +274,9 @@ export default function OnAirDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left Column - Now Playing & Queue */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Now Playing */}
           <NowPlayingCard nowPlaying={nowPlaying} onSkip={handleSkip} />
 
@@ -310,7 +310,7 @@ export default function OnAirDashboard() {
           {!showSchedule && (
             <button
               onClick={() => setShowSchedule(true)}
-              className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold text-lg transition-all shadow-lg"
+              className="w-full py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-bold text-base sm:text-lg transition-all shadow-lg"
             >
               View Today's Schedule
             </button>
@@ -318,7 +318,7 @@ export default function OnAirDashboard() {
         </div>
 
         {/* Right Column - Requests */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Live Requests */}
           <LiveRequestsFeed
             requests={requests}

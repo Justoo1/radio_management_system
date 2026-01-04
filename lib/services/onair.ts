@@ -70,37 +70,61 @@ export async function startPlaying(organizationId: string, data: NowPlayingData)
 }
 
 export async function getCurrentlyPlaying(organizationId: string) {
-  // Try cache first (optional - don't fail if Redis is down)
+  // Try cache first with timeout (optional - don't fail if Redis is down)
   try {
     const redis = getRedis();
-    const cached = await redis.get(`onair:now:${organizationId}`);
+    const cached = await Promise.race([
+      redis.get(`onair:now:${organizationId}`),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), 2000))
+    ]) as string | null;
 
     if (cached) {
       return JSON.parse(cached);
     }
   } catch (error) {
-    console.warn('Redis read failed, falling back to database:', error instanceof Error ? error.message : error);
+    console.warn('[OnAir Service] Redis read failed, falling back to database:', error instanceof Error ? error.message : error);
   }
 
-  // Fall back to database
-  return await prisma.onAirNow.findUnique({
-    where: { organizationId },
-    include: {
-      presenter: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
+  // Fall back to database with optimized query
+  try {
+    const result = await prisma.onAirNow.findUnique({
+      where: { organizationId },
+      select: {
+        id: true,
+        itemType: true,
+        itemId: true,
+        title: true,
+        artist: true,
+        duration: true,
+        startedAt: true,
+        endsAt: true,
+        remainingSeconds: true,
+        thumbnailUrl: true,
+        audioUrl: true,
+        notes: true,
+        programId: true,
+        presenterId: true,
+        presenter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        program: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-      program: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  });
+    });
+
+    return result;
+  } catch (dbError) {
+    console.error('[OnAir Service] Database query failed:', dbError);
+    return null;
+  }
 }
 
 export async function skipCurrentlyPlaying(organizationId: string) {
@@ -618,6 +642,11 @@ export async function startProgram(
 
   if (!program) {
     throw new Error('Program not found');
+  }
+
+  // Verify program belongs to organization (security check)
+  if (program.organizationId !== organizationId) {
+    throw new Error('Unauthorized: Program does not belong to your organization');
   }
 
   // Update program status to LIVE

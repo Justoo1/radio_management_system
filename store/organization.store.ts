@@ -22,7 +22,15 @@ export interface Organization {
   maxClients: number
   maxSMSPerMonth: number
   maxStorageGB: number
+  enabledFeatures?: string
   createdAt?: Date
+}
+
+export interface SubscriptionPlan {
+  id: string
+  name: string
+  price: number
+  currency?: string
 }
 
 export interface Subscription {
@@ -30,6 +38,7 @@ export interface Subscription {
   status: 'TRIAL' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED'
   planId: string
   planName: string
+  plan?: SubscriptionPlan
   trialEndDate?: Date
   startDate?: Date
   endDate?: Date

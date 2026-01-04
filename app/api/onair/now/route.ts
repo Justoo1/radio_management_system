@@ -13,22 +13,41 @@ export async function GET(req: NextRequest) {
 
     if (!organizationId) {
       // Fall back to auth if no org ID header
-      const session = await auth();
-      if (!session?.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      try {
+        const session = await Promise.race([
+          auth(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Auth timeout')), 5000))
+        ]) as any;
+
+        if (!session?.user) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        organizationId = session.user.organizationId;
+      } catch (authError) {
+        console.error('[OnAir Now GET] Auth error:', authError);
+        return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
       }
-      organizationId = (session.user as any).organizationId;
     }
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const nowPlaying = await getCurrentlyPlaying(organizationId as string);
+    // Add timeout to database query
+    const nowPlaying = await Promise.race([
+      getCurrentlyPlaying(organizationId as string),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Query timeout')), 8000))
+    ]) as any;
 
-    return NextResponse.json(nowPlaying);
+    return NextResponse.json(nowPlaying || null);
   } catch (error: any) {
-    console.error('Error fetching now playing:', error);
+    console.error('[OnAir Now GET] Error:', error);
+
+    // Return null instead of error for timeouts to allow graceful degradation
+    if (error.message?.includes('timeout')) {
+      return NextResponse.json(null);
+    }
+
     return NextResponse.json(
       { error: error.message || 'Failed to fetch now playing' },
       { status: 500 }
@@ -85,3 +104,5 @@ export async function DELETE(req: NextRequest) {
 }
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 10; // Maximum execution time in seconds

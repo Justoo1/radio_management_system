@@ -40,7 +40,7 @@ export interface ListenerRequestData {
 }
 
 export function useOnAirPolling(organizationId: string, userId: string) {
-  const [isConnected, setIsConnected] = useState(true); // Always "connected" with polling
+  const [isConnected, setIsConnected] = useState(true);
   const [nowPlaying, setNowPlaying] = useState<NowPlayingData | null>(null);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [requests, setRequests] = useState<ListenerRequestData[]>([]);
@@ -52,14 +52,21 @@ export function useOnAirPolling(organizationId: string, userId: string) {
     timer?: NodeJS.Timeout;
   }>({});
 
-  // Fetch now playing data
+  // Fetch now playing data with timeout
   const fetchNowPlaying = useCallback(async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch('/api/onair/now', {
         headers: {
           'x-organization-id': organizationId,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         if (data?.id) {
@@ -78,47 +85,77 @@ export function useOnAirPolling(organizationId: string, userId: string) {
         } else {
           setNowPlaying(null);
         }
+      } else if (response.status === 504) {
+        console.warn('[OnAir Poll] Server timeout, keeping last known state');
+        // Don't clear nowPlaying on timeout, keep showing last known state
       }
-    } catch (error) {
-      console.error('Error fetching now playing:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.warn('[OnAir Poll] Request timeout');
+      } else {
+        console.error('[OnAir Poll] Error fetching now playing:', error);
+      }
+      // Keep showing last known state on error
     }
   }, [organizationId]);
 
-  // Fetch queue data
+  // Fetch queue data with timeout
   const fetchQueue = useCallback(async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch('/api/onair/queue', {
         headers: {
           'x-organization-id': organizationId,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
           setQueue(data);
         }
+      } else if (response.status === 504) {
+        console.warn('[OnAir Poll] Queue timeout, keeping last known state');
       }
-    } catch (error) {
-      console.error('Error fetching queue:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('[OnAir Poll] Error fetching queue:', error);
+      }
     }
   }, [organizationId]);
 
-  // Fetch requests data
+  // Fetch requests data with timeout
   const fetchRequests = useCallback(async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch('/api/onair/requests', {
         headers: {
           'x-organization-id': organizationId,
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
+
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data)) {
           setRequests(data);
         }
+      } else if (response.status === 504) {
+        console.warn('[OnAir Poll] Requests timeout, keeping last known state');
       }
-    } catch (error) {
-      console.error('Error fetching requests:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('[OnAir Poll] Error fetching requests:', error);
+      }
     }
   }, [organizationId]);
 
@@ -152,15 +189,15 @@ export function useOnAirPolling(organizationId: string, userId: string) {
     fetchQueue();
     fetchRequests();
 
-    // Setup polling intervals
-    // Poll now playing every 3 seconds
-    pollingIntervalsRef.current.nowPlaying = setInterval(fetchNowPlaying, 3000);
+    // Setup polling intervals - Increased intervals to reduce server load
+    // Poll now playing every 5 seconds (reduced from 3s)
+    pollingIntervalsRef.current.nowPlaying = setInterval(fetchNowPlaying, 5000);
 
-    // Poll queue every 2 seconds
-    pollingIntervalsRef.current.queue = setInterval(fetchQueue, 2000);
+    // Poll queue every 4 seconds (reduced from 2s)
+    pollingIntervalsRef.current.queue = setInterval(fetchQueue, 4000);
 
-    // Poll requests every 4 seconds
-    pollingIntervalsRef.current.requests = setInterval(fetchRequests, 4000);
+    // Poll requests every 6 seconds (reduced from 4s)
+    pollingIntervalsRef.current.requests = setInterval(fetchRequests, 6000);
 
     return () => {
       // Cleanup all intervals

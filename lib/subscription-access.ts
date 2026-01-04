@@ -13,6 +13,7 @@ export type ReportType =
   | 'clients'
   | 'programs'
   | 'sms'
+  | 'listener-tracking'
 
 export type SubscriptionPlan = 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'
 
@@ -33,6 +34,7 @@ const REPORT_ACCESS: Record<SubscriptionPlan, ReportType[]> = {
     'clients',
     'programs',
     'sms',
+    'listener-tracking',
   ],
   ENTERPRISE: [
     'financial-dashboard',
@@ -44,6 +46,7 @@ const REPORT_ACCESS: Record<SubscriptionPlan, ReportType[]> = {
     'clients',
     'programs',
     'sms',
+    'listener-tracking',
   ],
 }
 
@@ -87,6 +90,7 @@ export function getLockedReports(plan: string | null | undefined): ReportType[] 
     'clients',
     'programs',
     'sms',
+    'listener-tracking',
   ]
 
   return allReports.filter(report => !accessible.includes(report))
@@ -106,6 +110,7 @@ export function getUpgradeMessage(reportType: ReportType): string {
     'clients': 'Upgrade to Professional plan to access Client Analytics',
     'programs': 'Upgrade to Professional plan to access Programs Report',
     'sms': 'Upgrade to Professional plan to access SMS Analytics',
+    'listener-tracking': 'Upgrade to Professional plan to access Listener Tracking',
   }
 
   return messages[reportType] || 'Upgrade to access this report'
