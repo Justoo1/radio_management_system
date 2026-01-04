@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Activity, TrendingUp, Users, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Feature, isFeatureEnabled, parseEnabledFeatures } from '@/lib/features';
-import { hasReportAccess } from '@/lib/subscription-access';
-import { useOrganizationStore } from '@/store/organization.store';
+import { FeatureGuard } from '@/components/feature-guard';
+import { Feature } from '@/lib/features';
 
 interface MetricsData {
   timestamp: string;
@@ -22,8 +21,18 @@ interface MetricsData {
 }
 
 export default function ListenerMetrics() {
+  return (
+    <FeatureGuard
+      feature={Feature.LISTENER_TRACKING}
+      featureDescription="Access detailed analytics, engagement metrics, and listener behavior insights"
+    >
+      <MetricsContent />
+    </FeatureGuard>
+  );
+}
+
+function MetricsContent() {
   const { data: session } = useSession();
-  const { organization, subscription } = useOrganizationStore();
   const [metrics, setMetrics] = useState<MetricsData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,29 +55,6 @@ export default function ListenerMetrics() {
       fetchMetrics();
     }
   }, [session]);
-
-  // Check feature access
-  const enabledFeatures = organization?.enabledFeatures
-    ? parseEnabledFeatures(organization.enabledFeatures)
-    : [];
-  const hasFeature = isFeatureEnabled(enabledFeatures, Feature.LISTENER_TRACKING);
-  const hasPlanAccess = hasReportAccess(subscription?.plan?.name || subscription?.planName, 'listener-tracking');
-
-  if (!hasFeature || !hasPlanAccess) {
-    return (
-      <div className="p-6">
-        <div className="max-w-2xl mx-auto text-center py-12">
-          <Activity className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-2">Listener Tracking Not Available</h2>
-          <p className="text-muted-foreground mb-4">
-            {!hasPlanAccess
-              ? 'Upgrade to Professional plan to access listener tracking features.'
-              : 'This feature is not enabled for your organization. Contact support to enable it.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (

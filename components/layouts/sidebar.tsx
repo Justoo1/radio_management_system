@@ -24,6 +24,7 @@ import {
   LucideIcon,
   Lock,
   ImageIcon,
+  Activity,
 } from 'lucide-react'
 import { getEnabledFeatures, getOrganizationName } from '@/app/actions/features'
 import { Feature, isFeatureEnabled } from '@/lib/features'
@@ -42,6 +43,7 @@ const menuItems: MenuItem[] = [
   { href: '/clients', label: 'Clients', icon: Users, feature: Feature.CLIENTS },
   { href: '/programs', label: 'Programs', icon: Radio, feature: Feature.PROGRAMS },
   { href: '/teams', label: 'Teams', icon: Users2, highlight: true, feature: Feature.TEAMS },
+  { href: '/listeners', label: 'Listeners', icon: Activity, feature: Feature.LISTENER_TRACKING },
   { href: '/sms/campaigns', label: 'SMS Campaigns', icon: MessageSquare, feature: Feature.SMS_CAMPAIGNS },
   { href: '/media', label: 'Media Library', icon: ImageIcon, feature: Feature.MEDIA_LIBRARY },
   { href: '/advertising', label: 'Advertising', icon: Megaphone, feature: Feature.ADVERTISEMENTS },

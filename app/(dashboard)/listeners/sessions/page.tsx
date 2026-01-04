@@ -4,9 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Activity, MapPin, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Feature, isFeatureEnabled, parseEnabledFeatures } from '@/lib/features';
-import { hasReportAccess } from '@/lib/subscription-access';
-import { useOrganizationStore } from '@/store/organization.store';
+import { FeatureGuard } from '@/components/feature-guard';
+import { Feature } from '@/lib/features';
 
 interface ListenerSession {
   id: string;
@@ -25,8 +24,18 @@ interface ListenerSession {
 }
 
 export default function ListenerSessions() {
+  return (
+    <FeatureGuard
+      feature={Feature.LISTENER_TRACKING}
+      featureDescription="View detailed session history and track listener activity over time"
+    >
+      <SessionsContent />
+    </FeatureGuard>
+  );
+}
+
+function SessionsContent() {
   const { data: session } = useSession();
-  const { organization, subscription } = useOrganizationStore();
   const [sessions, setSessions] = useState<ListenerSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,29 +58,6 @@ export default function ListenerSessions() {
       fetchSessions();
     }
   }, [session]);
-
-  // Check feature access
-  const enabledFeatures = organization?.enabledFeatures
-    ? parseEnabledFeatures(organization.enabledFeatures)
-    : [];
-  const hasFeature = isFeatureEnabled(enabledFeatures, Feature.LISTENER_TRACKING);
-  const hasPlanAccess = hasReportAccess(subscription?.plan?.name || subscription?.planName, 'listener-tracking');
-
-  if (!hasFeature || !hasPlanAccess) {
-    return (
-      <div className="p-6">
-        <div className="max-w-2xl mx-auto text-center py-12">
-          <Activity className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-2">Listener Tracking Not Available</h2>
-          <p className="text-muted-foreground mb-4">
-            {!hasPlanAccess
-              ? 'Upgrade to Professional plan to access listener tracking features.'
-              : 'This feature is not enabled for your organization. Contact support to enable it.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   if (loading) {
     return (

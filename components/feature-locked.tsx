@@ -76,7 +76,7 @@ export function FeatureLocked({ featureName, featureDescription }: FeatureLocked
               <Button
                 size="lg"
                 variant="outline"
-                className="w-full border-white/20 hover:bg-white/10 text-white font-semibold"
+                className="w-full border-white/20 bg-white/10 font-semibold"
               >
                 Manage Subscription
               </Button>
