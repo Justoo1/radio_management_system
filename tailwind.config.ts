@@ -60,6 +60,11 @@ export default {
   			blob: 'blob 7s infinite',
   			wave: 'wave 3s ease-out infinite',
   			float: 'float 6s ease-in-out infinite',
+  			'fade-in': 'fadeIn 0.3s ease-out',
+  		},
+  		animationDelay: {
+  			'2000': '2s',
+  			'4000': '4s',
   		},
   		keyframes: {
   			blob: {
@@ -90,6 +95,10 @@ export default {
   					transform: 'translateY(-20px) translateX(10px)',
   					opacity: '1',
   				},
+  			},
+  			fadeIn: {
+  				'0%': { opacity: '0', transform: 'translateY(-10px)' },
+  				'100%': { opacity: '1', transform: 'translateY(0)' },
   			},
   		},
   	}
