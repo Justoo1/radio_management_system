@@ -1,12 +1,29 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
 import { X } from 'lucide-react'
 import { useUIStore } from '@/store'
+import { getOrganizationName } from '@/app/actions/features'
 import Sidebar from './sidebar'
 
 export default function MobileSidebarOverlay() {
   const { isSidebarOpen, setSidebarOpen } = useUIStore()
+  const [orgName, setOrgName] = useState('Radio Management')
+
+  // Load organization name
+  useEffect(() => {
+    async function loadOrgName() {
+      try {
+        const organizationName = await getOrganizationName()
+        setOrgName(organizationName)
+      } catch (error) {
+        console.error('Failed to load organization name:', error)
+      }
+    }
+    loadOrgName()
+  }, [])
 
   // Close sidebar when clicking outside on mobile
   useEffect(() => {
@@ -51,12 +68,26 @@ export default function MobileSidebarOverlay() {
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Close Button */}
+        {/* Header with Logo and Close Button */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-white">RadioMgmt</h1>
+          <Link href="/dashboard" className="flex items-center gap-3 flex-1 min-w-0" onClick={() => setSidebarOpen(false)}>
+            <Image
+              src="/logo-white.svg"
+              alt="RMS Logo"
+              width={32}
+              height={32}
+              className="flex-shrink-0"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base font-bold text-white truncate">
+                {orgName}
+              </h1>
+              <p className="text-xs text-slate-400">RMS</p>
+            </div>
+          </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="p-2 hover:bg-slate-700 rounded-lg transition"
+            className="p-2 hover:bg-slate-700 rounded-lg transition flex-shrink-0"
           >
             <X size={20} />
           </button>
