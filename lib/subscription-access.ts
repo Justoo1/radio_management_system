@@ -115,3 +115,28 @@ export function getUpgradeMessage(reportType: ReportType): string {
 
   return messages[reportType] || 'Upgrade to access this report'
 }
+
+/**
+ * Check if an organization has a specific feature enabled
+ */
+export function hasFeature(
+  organization: { enabledFeatures?: string | string[] | null } | null | undefined,
+  featureName: string
+): boolean {
+  if (!organization) return false
+  if (!organization.enabledFeatures) return false
+
+  // Handle both string (JSON) and array formats
+  let features: string[]
+  if (typeof organization.enabledFeatures === 'string') {
+    try {
+      features = JSON.parse(organization.enabledFeatures)
+    } catch {
+      return false
+    }
+  } else {
+    features = organization.enabledFeatures
+  }
+
+  return Array.isArray(features) && features.includes(featureName)
+}

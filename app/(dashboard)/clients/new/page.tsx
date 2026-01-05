@@ -106,7 +106,7 @@ export default function NewClientPage() {
       // Hide success message after 3 seconds and redirect
       setTimeout(() => {
         setSaved(false)
-        window.location.href = '//clients'
+        window.location.href = '/clients'
       }, 3000)
     } catch (error) {
       console.error('Failed to create client:', error)
