@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,8 +22,13 @@ import {
   Mail,
   FileText,
   MessagesSquare,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { LiveChat } from './components/live-chat';
+
+// Local storage key for user name
+const LISTENER_NAME_KEY = 'rms_listener_name';
 
 const requestSchema = z.object({
   listenerName: z.string().min(1, 'Name is required').max(100),
@@ -62,7 +67,36 @@ export default function PublicListenerPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'request' | 'chat'>('chat');
-  const [userName, setUserName] = useState('Listener');
+  const [userName, setUserName] = useState<string>('');
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [tempName, setTempName] = useState('');
+  const [nameLoaded, setNameLoaded] = useState(false);
+
+  // Load saved name from localStorage
+  useEffect(() => {
+    const savedName = localStorage.getItem(LISTENER_NAME_KEY);
+    if (savedName) {
+      setUserName(savedName);
+    } else {
+      setShowNameModal(true);
+    }
+    setNameLoaded(true);
+  }, []);
+
+  // Save name to localStorage and state
+  const handleSaveName = useCallback((name: string) => {
+    const trimmedName = name.trim();
+    if (trimmedName) {
+      localStorage.setItem(LISTENER_NAME_KEY, trimmedName);
+      setUserName(trimmedName);
+      setShowNameModal(false);
+    }
+  }, []);
+
+  // Handle name change from chat component
+  const handleUserNameChange = useCallback((newName: string) => {
+    handleSaveName(newName);
+  }, [handleSaveName]);
 
   const {
     register,
@@ -233,11 +267,11 @@ export default function PublicListenerPage() {
         {/* Content */}
         <div className="max-w-2xl mx-auto">
           {/* Live Chat Tab */}
-          {activeTab === 'chat' && (
+          {activeTab === 'chat' && nameLoaded && (
             <LiveChat
               organizationSlug={slug}
-              userName={userName}
-              onUserNameChange={setUserName}
+              userName={userName || 'Listener'}
+              onUserNameChange={handleUserNameChange}
             />
           )}
 
@@ -417,6 +451,85 @@ export default function PublicListenerPage() {
           </p>
         </div>
       </div>
+
+      {/* Welcome Name Modal */}
+      {showNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-md bg-gradient-to-br from-slate-900 via-purple-900/90 to-slate-900 rounded-3xl border border-white/20 p-8 shadow-2xl">
+            {/* Close button - only show if user already has a name */}
+            {userName && (
+              <button
+                onClick={() => setShowNameModal(false)}
+                className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Welcome to the Chat!
+              </h2>
+              <p className="text-slate-400">
+                Enter your name so other listeners and the station staff can see who you are.
+              </p>
+            </div>
+
+            {/* Name Input */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  <User className="w-4 h-4 inline mr-2" />
+                  Your Name
+                </label>
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && tempName.trim()) {
+                      handleSaveName(tempName);
+                    }
+                  }}
+                  placeholder="Enter your name"
+                  maxLength={50}
+                  autoFocus
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all text-lg"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  This will be saved in your browser for future visits.
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleSaveName(tempName)}
+                disabled={!tempName.trim()}
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl font-semibold text-lg transition-all shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Join the Chat
+              </button>
+
+              {/* Skip option */}
+              {!userName && (
+                <button
+                  onClick={() => {
+                    setUserName('Listener');
+                    setShowNameModal(false);
+                  }}
+                  className="w-full text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Continue as Guest
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
