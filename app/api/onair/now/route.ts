@@ -5,6 +5,7 @@ import {
   startPlaying,
   skipCurrentlyPlaying,
 } from '@/lib/services/onair';
+import { triggerOnAirEvent, PUSHER_EVENTS } from '@/lib/pusher/server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -71,6 +72,20 @@ export async function POST(req: NextRequest) {
       presenterId: userId,
     });
 
+    // Trigger Pusher event for real-time update
+    await triggerOnAirEvent(organizationId, PUSHER_EVENTS.NOW_PLAYING_UPDATED, {
+      id: nowPlaying.id,
+      title: nowPlaying.title,
+      artist: nowPlaying.artist,
+      duration: nowPlaying.duration,
+      remainingSeconds: nowPlaying.remainingSeconds,
+      startedAt: nowPlaying.startedAt,
+      endsAt: nowPlaying.endsAt,
+      thumbnailUrl: nowPlaying.thumbnailUrl,
+      itemType: nowPlaying.itemType,
+      programId: nowPlaying.programId,
+    });
+
     return NextResponse.json(nowPlaying);
   } catch (error: any) {
     console.error('Error starting playback:', error);
@@ -81,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE(req: NextRequest) {
+export async function DELETE(_req: NextRequest) {
   try {
     const session = await auth();
 
@@ -92,6 +107,9 @@ export async function DELETE(req: NextRequest) {
     const { organizationId } = session.user as any;
 
     await skipCurrentlyPlaying(organizationId);
+
+    // Trigger Pusher event for real-time update
+    await triggerOnAirEvent(organizationId, PUSHER_EVENTS.NOW_PLAYING_ENDED, {});
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

@@ -7,6 +7,7 @@ import {
   removeFromQueue,
   playNextInQueue,
 } from '@/lib/services/onair';
+import { triggerOnAirEvent, PUSHER_EVENTS } from '@/lib/pusher/server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -53,13 +54,36 @@ export async function POST(req: NextRequest) {
 
     if (action === 'add') {
       const queueItem = await addToQueue(organizationId, data);
+      // Trigger Pusher event
+      await triggerOnAirEvent(organizationId, PUSHER_EVENTS.QUEUE_ITEM_ADDED, queueItem);
       return NextResponse.json(queueItem);
     } else if (action === 'reorder') {
       await updateQueuePositions(organizationId, data.items);
+      // Fetch updated queue and trigger Pusher event
+      const updatedQueue = await getQueue(organizationId);
+      await triggerOnAirEvent(organizationId, PUSHER_EVENTS.QUEUE_REORDERED, updatedQueue);
       return NextResponse.json({ success: true });
     } else if (action === 'playNext') {
       const { id: userId } = session.user as any;
       const nowPlaying = await playNextInQueue(organizationId, userId);
+      if (nowPlaying) {
+        // Trigger now playing event
+        await triggerOnAirEvent(organizationId, PUSHER_EVENTS.NOW_PLAYING_UPDATED, {
+          id: nowPlaying.id,
+          title: nowPlaying.title,
+          artist: nowPlaying.artist,
+          duration: nowPlaying.duration,
+          remainingSeconds: nowPlaying.remainingSeconds,
+          startedAt: nowPlaying.startedAt,
+          endsAt: nowPlaying.endsAt,
+          thumbnailUrl: nowPlaying.thumbnailUrl,
+          itemType: nowPlaying.itemType,
+          programId: nowPlaying.programId,
+        });
+        // Update queue
+        const updatedQueue = await getQueue(organizationId);
+        await triggerOnAirEvent(organizationId, PUSHER_EVENTS.QUEUE_UPDATED, updatedQueue);
+      }
       return NextResponse.json(nowPlaying);
     }
 
@@ -93,6 +117,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     await removeFromQueue(organizationId, queueItemId);
+
+    // Trigger Pusher event
+    await triggerOnAirEvent(organizationId, PUSHER_EVENTS.QUEUE_ITEM_REMOVED, { id: queueItemId });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

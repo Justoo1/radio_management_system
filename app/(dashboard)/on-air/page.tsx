@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Radio, Wifi, WifiOff } from 'lucide-react';
-import { useOnAirPolling } from './hooks/use-onair-polling';
+import { useOnAirPusher } from './hooks/use-onair-pusher';
 import { NowPlayingCard } from './components/now-playing-card';
 import { QueueList } from './components/queue-list';
 import { LiveRequestsFeed } from './components/live-requests-feed';
@@ -22,7 +22,7 @@ export default function OnAirDashboard() {
     refetchQueue,
     refetchNowPlaying,
     refetchRequests,
-  } = useOnAirPolling(
+  } = useOnAirPusher(
     (session?.user as any)?.organizationId || '',
     (session?.user as any)?.id || ''
   );

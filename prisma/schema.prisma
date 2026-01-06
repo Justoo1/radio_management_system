@@ -92,7 +92,13 @@ model Organization {
 
   // WhatsApp
   whatsappAccount  WhatsAppAccount?
+
+  // Listener Chat
+  listenerChatMessages ListenerChatMessage[]
   whatsappMessages WhatsAppMessage[]
+
+  // Push Notifications
+  pushSubscriptions PushSubscription[]
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -371,6 +377,12 @@ model User {
   showNotes     ShowNote[]        @relation("ShowNotePresenter")
   songPlays     SongPlayHistory[] @relation("SongPlayPresenter")
 
+  // Listener Chat Moderation
+  moderatedChatMessages ListenerChatMessage[] @relation("ChatMessageModerator")
+
+  // Push Notifications
+  pushSubscriptions PushSubscription[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -386,6 +398,41 @@ enum UserStatus {
   INACTIVE
   SUSPENDED
   PENDING_INVITATION
+}
+
+// ============================================
+// PUSH NOTIFICATIONS
+// ============================================
+
+model PushSubscription {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Web Push subscription data
+  endpoint String @unique @db.Text
+  p256dh   String @db.Text // Public key
+  auth     String // Auth secret
+
+  // Device info
+  userAgent String? @db.Text
+  deviceName String?
+
+  // Notification preferences
+  notifyRequests  Boolean @default(true)
+  notifyChat      Boolean @default(true)
+  notifyPayments  Boolean @default(true)
+  notifySystem    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model Account {
@@ -1371,6 +1418,12 @@ enum MetricType {
   SMS_CAMPAIGNS_SENT
   SMS_CAMPAIGNS_TOTAL
   GROWTH_RATE
+  // Listener engagement metrics
+  LISTENER_REQUEST_APPROVED
+  LISTENER_REQUEST_REJECTED
+  LISTENER_CHAT_MESSAGE
+  LISTENER_SESSION_STARTED
+  LISTENER_SESSION_ENDED
 }
 
 // ============================================
@@ -2091,4 +2144,50 @@ enum WhatsAppMessageStatus {
   READ
   FAILED
   PENDING
+}
+
+// Listener Chat Messages (Group Chat)
+model ListenerChatMessage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Sender info (public listener)
+  senderName  String
+  senderPhone String?
+  senderEmail String?
+
+  // Message content
+  message String @db.Text
+
+  // Moderation
+  status    ChatMessageStatus @default(VISIBLE)
+  isPinned  Boolean           @default(false)
+  isFromStaff Boolean         @default(false)
+
+  // Staff who moderated/replied
+  moderatedById String?
+  moderatedBy   User?    @relation("ChatMessageModerator", fields: [moderatedById], references: [id])
+  moderatedAt   DateTime?
+
+  // Reply functionality
+  replyToId String?
+  replyTo   ListenerChatMessage?  @relation("ChatReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   ListenerChatMessage[] @relation("ChatReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([senderPhone])
+  @@map("listener_chat_messages")
+}
+
+enum ChatMessageStatus {
+  VISIBLE
+  HIDDEN
+  DELETED
+  FLAGGED
 }

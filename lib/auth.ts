@@ -14,6 +14,7 @@ declare module 'next-auth' {
     email: string
     name?: string
     organizationId: string
+    organizationSlug: string
     role: string
   }
 
@@ -23,6 +24,7 @@ declare module 'next-auth' {
       email: string
       name?: string
       organizationId: string
+      organizationSlug: string
       role: string
     }
   }
@@ -82,6 +84,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: user.email,
             name: user.name || undefined,
             organizationId: user.organizationId,
+            organizationSlug: user.organization?.slug || '',
             role: user.role?.name || 'USER',
           }
         } catch (error) {
@@ -106,6 +109,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id
         token.email = user.email
         token.organizationId = user.organizationId
+        token.organizationSlug = user.organizationSlug
         token.role = user.role
       }
       return token
@@ -115,6 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string
         session.user.email = token.email as string
         session.user.organizationId = token.organizationId as string
+        session.user.organizationSlug = token.organizationSlug as string
         session.user.role = token.role as string
 
         // Check if organization is still active

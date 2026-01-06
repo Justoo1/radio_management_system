@@ -9,6 +9,7 @@ import prisma from '@/lib/prisma'
 import { resend, DEFAULT_FROM_EMAIL } from '@/lib/resend'
 import { OverdueBillEmail } from '@/emails/overdue-bill'
 import { AdminOverdueSummaryEmail } from '@/emails/admin-overdue-summary'
+import { notifyPaymentDue } from '@/lib/push-notifications'
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,6 +99,18 @@ export async function POST(request: NextRequest) {
         console.log(`✅ Sent overdue email to ${notification.ownerEmail}`)
       } catch (emailError) {
         console.error(`❌ Failed to send email to ${notification.ownerEmail}:`, emailError)
+      }
+
+      // Send push notification
+      try {
+        await notifyPaymentDue(notification.organizationId, {
+          amount: notification.billAmount,
+          currency: 'GHS',
+          dueDate: notification.dueDate,
+        })
+        console.log(`📱 Sent push notification to ${notification.organizationName}`)
+      } catch (pushError) {
+        console.error(`❌ Failed to send push notification:`, pushError)
       }
 
       // Log to console

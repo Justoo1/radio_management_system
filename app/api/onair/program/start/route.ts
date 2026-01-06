@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { startProgram } from '@/lib/services/onair';
+import { triggerOnAirEvent, PUSHER_EVENTS } from '@/lib/pusher/server';
 
 /**
  * POST /api/onair/program/start
@@ -54,6 +55,21 @@ export async function POST(req: NextRequest) {
     ]) as any;
 
     console.log('[OnAir Start] Program started successfully:', onAir.id);
+
+    // Trigger Pusher event for real-time update
+    await triggerOnAirEvent(session.user.organizationId, PUSHER_EVENTS.PROGRAM_STARTED, {
+      id: onAir.id,
+      title: onAir.title,
+      artist: onAir.artist,
+      duration: onAir.duration,
+      remainingSeconds: onAir.remainingSeconds,
+      startedAt: onAir.startedAt,
+      endsAt: onAir.endsAt,
+      thumbnailUrl: onAir.thumbnailUrl,
+      itemType: onAir.itemType,
+      programId: onAir.programId,
+    });
+
     return NextResponse.json({ success: true, onAir });
   } catch (error) {
     console.error('[OnAir Start] Error starting program:', error);
