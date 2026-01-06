@@ -86,9 +86,10 @@ model Organization {
   songPlayHistory  SongPlayHistory[]
 
   // Analytics
-  listenerSessions ListenerSession[]
-  listenerMetrics  ListenerMetrics[]
-  programRatings   ProgramRating[]
+  listenerSessions    ListenerSession[]
+  engagementSessions  EngagementSession[]
+  listenerMetrics     ListenerMetrics[]
+  programRatings      ProgramRating[]
 
   // WhatsApp
   whatsappAccount  WhatsAppAccount?
@@ -379,6 +380,9 @@ model User {
 
   // Listener Chat Moderation
   moderatedChatMessages ListenerChatMessage[] @relation("ChatMessageModerator")
+
+  // Engagement Sessions
+  engagementSessions EngagementSession[]
 
   // Push Notifications
   pushSubscriptions PushSubscription[]
@@ -745,11 +749,12 @@ model Program {
   onAirSessions    OnAirNow[]
   queueItems       OnAirQueue[]
   listenerRequests ListenerRequest[]
-  showNotes        ShowNote[]
-  songPlayHistory  SongPlayHistory[]
-  listenerSessions ListenerSession[]
-  listenerMetrics  ListenerMetrics[]
-  ratings          ProgramRating[]
+  showNotes           ShowNote[]
+  songPlayHistory     SongPlayHistory[]
+  listenerSessions    ListenerSession[]
+  engagementSessions  EngagementSession[]
+  listenerMetrics     ListenerMetrics[]
+  ratings             ProgramRating[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1972,6 +1977,86 @@ enum ListenerPlatform {
   SMART_SPEAKER
   CAR_RADIO
   THIRD_PARTY
+}
+
+// ============================================
+// ENGAGEMENT SESSION (Traditional FM Tracking)
+// ============================================
+// Manual engagement tracking for Traditional FM stations
+// Tracks phone calls, SMS, WhatsApp, social media interactions
+
+model EngagementSession {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Session info
+  name        String? // Optional name for the session (e.g., "Morning Show - Jan 6")
+  source      EngagementSource // Primary source being tracked
+  status      EngagementSessionStatus @default(ACTIVE)
+
+  // Engagement counts - staff can increment these during the session
+  phoneCallCount    Int @default(0)
+  smsCount          Int @default(0)
+  whatsappCount     Int @default(0)
+  socialMediaCount  Int @default(0)
+  websiteCount      Int @default(0)
+  mobileAppCount    Int @default(0)
+  otherCount        Int @default(0)
+
+  // Additional tracking
+  uniqueCallers     Int @default(0) // Estimated unique callers
+  contestEntries    Int @default(0)
+  songRequests      Int @default(0)
+  dedications       Int @default(0)
+  shoutouts         Int @default(0)
+
+  // Listener info (optional - for tracking notable callers)
+  listenerName  String?
+  listenerPhone String?
+
+  // Program context
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id])
+
+  // Notes and metadata
+  notes    String? @db.Text
+  metadata Json?   // Flexible storage for additional data
+
+  // Created by staff member
+  createdById String?
+  createdBy   User?  @relation(fields: [createdById], references: [id])
+
+  // Timing
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([source])
+  @@index([programId])
+  @@index([startedAt])
+  @@index([createdById])
+  @@map("engagement_sessions")
+}
+
+enum EngagementSource {
+  PHONE_CALL
+  SMS
+  WHATSAPP
+  WEBSITE
+  SOCIAL_MEDIA
+  MOBILE_APP
+  MIXED // Multiple sources being tracked
+}
+
+enum EngagementSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
 }
 
 model ListenerMetrics {

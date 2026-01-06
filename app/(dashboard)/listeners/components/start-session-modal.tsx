@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,13 +20,15 @@ import {
   Globe,
   Smartphone,
   Loader2,
+  TrendingUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const sessionSchema = z.object({
+  name: z.string().max(200).optional(),
   listenerName: z.string().optional(),
   listenerPhone: z.string().optional(),
-  source: z.enum(['PHONE', 'SMS', 'WHATSAPP', 'WEBSITE', 'SOCIAL_MEDIA', 'MOBILE_APP']),
+  source: z.enum(['PHONE_CALL', 'SMS', 'WHATSAPP', 'WEBSITE', 'SOCIAL_MEDIA', 'MOBILE_APP', 'MIXED']),
   programId: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -46,26 +47,16 @@ interface StartSessionModalProps {
 }
 
 const sourceOptions = [
-  { value: 'PHONE', label: 'Phone Call', icon: Phone, color: 'from-blue-500/30 to-blue-600/30 border-blue-400/30 text-blue-300' },
+  { value: 'PHONE_CALL', label: 'Phone Call', icon: Phone, color: 'from-blue-500/30 to-blue-600/30 border-blue-400/30 text-blue-300' },
   { value: 'SMS', label: 'SMS', icon: MessageSquare, color: 'from-purple-500/30 to-purple-600/30 border-purple-400/30 text-purple-300' },
   { value: 'WHATSAPP', label: 'WhatsApp', icon: MessageSquare, color: 'from-green-500/30 to-green-600/30 border-green-400/30 text-green-300' },
   { value: 'WEBSITE', label: 'Website', icon: Globe, color: 'from-cyan-500/30 to-cyan-600/30 border-cyan-400/30 text-cyan-300' },
   { value: 'SOCIAL_MEDIA', label: 'Social Media', icon: Radio, color: 'from-pink-500/30 to-pink-600/30 border-pink-400/30 text-pink-300' },
   { value: 'MOBILE_APP', label: 'Mobile App', icon: Smartphone, color: 'from-orange-500/30 to-orange-600/30 border-orange-400/30 text-orange-300' },
+  { value: 'MIXED', label: 'All Sources', icon: TrendingUp, color: 'from-indigo-500/30 to-indigo-600/30 border-indigo-400/30 text-indigo-300' },
 ];
 
-// Map source to platform
-const sourceToPlatform: Record<string, string> = {
-  PHONE: 'THIRD_PARTY',
-  SMS: 'THIRD_PARTY',
-  WHATSAPP: 'THIRD_PARTY',
-  WEBSITE: 'WEB',
-  SOCIAL_MEDIA: 'THIRD_PARTY',
-  MOBILE_APP: 'MOBILE_APP',
-};
-
 export function StartSessionModal({ open, onOpenChange, onSessionCreated }: StartSessionModalProps) {
-  const { data: session } = useSession();
   const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingPrograms, setLoadingPrograms] = useState(false);
@@ -76,11 +67,10 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
     watch,
     setValue,
     reset,
-    formState: { errors },
   } = useForm<SessionFormData>({
     resolver: zodResolver(sessionSchema),
     defaultValues: {
-      source: 'PHONE',
+      source: 'MIXED',
     },
   });
 
@@ -110,23 +100,22 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
   const onSubmit = async (data: SessionFormData) => {
     setLoading(true);
     try {
-      const response = await fetch('/api/listener/session', {
+      // Use the new engagement session API
+      const response = await fetch('/api/listener/engagement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          programId: data.programId || undefined,
-          platform: sourceToPlatform[data.source] || 'WEB',
-          // Additional fields for manual entry (will be added to API)
-          listenerName: data.listenerName,
-          listenerPhone: data.listenerPhone,
+          name: data.name || undefined,
           source: data.source,
-          notes: data.notes,
-          manual: true, // Flag for manual entry
+          programId: data.programId || undefined,
+          listenerName: data.listenerName || undefined,
+          listenerPhone: data.listenerPhone || undefined,
+          notes: data.notes || undefined,
         }),
       });
 
       if (response.ok) {
-        toast.success('Session started successfully');
+        toast.success('Engagement session started! You can now track listener interactions.');
         reset();
         onOpenChange(false);
         onSessionCreated?.();
@@ -150,20 +139,32 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
             <div className="p-2 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl">
               <Users className="w-5 h-5 text-white" />
             </div>
-            Start New Listener Session
+            Start Engagement Session
           </DialogTitle>
           <DialogDescription>
-            Manually log a listener engagement from any source
+            Track listener engagement from phone calls, SMS, WhatsApp, and more. You can increment counters in real-time as interactions happen.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {/* Session Name */}
+          <div>
+            <label className="block text-sm font-medium text-white mb-2">
+              Session Name <span className="text-slate-500">(optional)</span>
+            </label>
+            <input
+              {...register('name')}
+              placeholder="e.g., Morning Show - Jan 6"
+              className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+            />
+          </div>
+
           {/* Source Selection */}
           <div>
             <label className="block text-sm font-medium text-white mb-3">
-              Engagement Source
+              Primary Engagement Source
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
               {sourceOptions.map((option) => {
                 const Icon = option.icon;
                 const isSelected = selectedSource === option.value;
@@ -172,42 +173,21 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
                     key={option.value}
                     type="button"
                     onClick={() => setValue('source', option.value as any)}
-                    className={`p-3 rounded-xl border transition-all duration-200 flex flex-col items-center gap-2 ${
+                    className={`p-2 sm:p-3 rounded-xl border transition-all duration-200 flex flex-col items-center gap-1 sm:gap-2 ${
                       isSelected
                         ? `bg-gradient-to-br ${option.color} shadow-lg`
                         : 'bg-white/5 border-white/10 hover:bg-white/10 text-slate-400'
                     }`}
                   >
-                    <Icon className={`w-5 h-5 ${isSelected ? '' : 'text-slate-400'}`} />
-                    <span className="text-xs font-medium">{option.label}</span>
+                    <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${isSelected ? '' : 'text-slate-400'}`} />
+                    <span className="text-[10px] sm:text-xs font-medium text-center leading-tight">{option.label}</span>
                   </button>
                 );
               })}
             </div>
-          </div>
-
-          {/* Listener Info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Listener Name <span className="text-slate-500">(optional)</span>
-              </label>
-              <input
-                {...register('listenerName')}
-                placeholder="John Doe"
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Phone Number <span className="text-slate-500">(optional)</span>
-              </label>
-              <input
-                {...register('listenerPhone')}
-                placeholder="+233 XX XXX XXXX"
-                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
-              />
-            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Select "All Sources" to track all engagement types in one session.
+            </p>
           </div>
 
           {/* Program Selection */}
@@ -233,6 +213,35 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
             </select>
           </div>
 
+          {/* Listener Info (collapsed by default) */}
+          <details className="group">
+            <summary className="text-sm text-slate-400 cursor-pointer hover:text-white transition-colors">
+              + Add notable listener info (optional)
+            </summary>
+            <div className="grid grid-cols-2 gap-4 mt-3">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Listener Name
+                </label>
+                <input
+                  {...register('listenerName')}
+                  placeholder="John Doe"
+                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Phone Number
+                </label>
+                <input
+                  {...register('listenerPhone')}
+                  placeholder="+233 XX XXX XXXX"
+                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
+                />
+              </div>
+            </div>
+          </details>
+
           {/* Notes */}
           <div>
             <label className="block text-sm font-medium text-white mb-2">
@@ -240,8 +249,8 @@ export function StartSessionModal({ open, onOpenChange, onSessionCreated }: Star
             </label>
             <textarea
               {...register('notes')}
-              placeholder="Add any additional notes about this engagement..."
-              rows={3}
+              placeholder="Add any additional notes about this session..."
+              rows={2}
               className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all resize-none"
             />
           </div>

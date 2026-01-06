@@ -9,6 +9,60 @@ import { auth } from '@/lib/auth';
 import { triggerChatEvent, PUSHER_EVENTS } from '@/lib/pusher/server';
 import { z } from 'zod';
 
+// Helper function to record chat engagement metrics
+async function recordChatMetric(
+  organizationId: string,
+  isFromStaff: boolean,
+  programId?: string | null
+) {
+  const now = new Date();
+  const hourStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), 0, 0);
+
+  try {
+    // Upsert listener metrics for this hour
+    await prisma.listenerMetrics.upsert({
+      where: {
+        organizationId_timestamp: {
+          organizationId,
+          timestamp: hourStart,
+        },
+      },
+      update: {
+        whatsappMessages: { increment: 1 },
+      },
+      create: {
+        organizationId,
+        timestamp: hourStart,
+        hour: now.getHours(),
+        dayOfWeek: now.getDay(),
+        whatsappMessages: 1,
+        programId: programId || undefined,
+      },
+    });
+
+    // Also record in the general Metric table for detailed reports
+    await prisma.metric.create({
+      data: {
+        organizationId,
+        metricType: 'LISTENER_CHAT_MESSAGE',
+        metricName: isFromStaff ? 'Staff Chat Message' : 'Listener Chat Message',
+        value: 1,
+        recordedDate: now,
+        metadata: JSON.stringify({
+          isFromStaff,
+          programId,
+          timestamp: now.toISOString(),
+          hour: now.getHours(),
+          dayOfWeek: now.getDay(),
+        }),
+      },
+    });
+  } catch (error) {
+    console.error('Failed to record chat metric:', error);
+    // Don't throw - metrics shouldn't break the main flow
+  }
+}
+
 // Staff message schema
 const staffMessageSchema = z.object({
   message: z.string().min(1).max(500),
@@ -130,6 +184,9 @@ export async function POST(request: NextRequest) {
       isPinned: false,
       createdAt: chatMessage.createdAt.toISOString(),
     });
+
+    // Record staff chat engagement metric
+    await recordChatMetric(session.user.organizationId, true);
 
     return NextResponse.json({
       success: true,

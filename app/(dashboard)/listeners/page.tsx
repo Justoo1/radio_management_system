@@ -23,6 +23,7 @@ import { StartSessionModal } from './components/start-session-modal';
 import { ListenerChatFeed } from './components/listener-chat-feed';
 import { DashboardChat } from './components/dashboard-chat';
 import { ShareableLink } from './components/shareable-link';
+import { EngagementTracker } from './components/engagement-tracker';
 import { useListenerRealtime } from './hooks/use-listener-realtime';
 
 export default function ListenersOverview() {
@@ -202,6 +203,9 @@ function ListenersContent() {
           );
         })}
       </div>
+
+      {/* Engagement Tracker - For Traditional FM stations */}
+      <EngagementTracker onStartSession={() => setShowStartSession(true)} />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
