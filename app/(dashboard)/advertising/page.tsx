@@ -18,6 +18,8 @@ import {
   Clock,
   Users,
   Target,
+  Package,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,35 +49,80 @@ interface Client {
   phone: string;
 }
 
+interface AdDaypart {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  priceMultiplier: number;
+  isActive: boolean;
+}
+
+interface Program {
+  id: string;
+  name: string;
+}
+
+interface AdPackage {
+  id: string;
+  name: string;
+  packageType: string;
+  totalPlays: number | null;
+  durationDays: number | null;
+  playsPerDay: number | null;
+  basePrice: number;
+  effectivePrice: number;
+  calculatedPlays: number | null;
+  daypart?: {
+    id: string;
+    name: string;
+    priceMultiplier: number;
+  };
+}
+
+const SCHEDULE_TYPES = [
+  { value: "TIME_SLOT", label: "Time Slot", description: "Scheduled at specific times" },
+  { value: "FLEXIBLE", label: "Flexible", description: "Play anytime during campaign" },
+  { value: "PROGRAM_BASED", label: "Program Based", description: "During specific programs" },
+  { value: "DAYPART_BASED", label: "Daypart Based", description: "During specific dayparts" },
+];
+
 interface AdCampaign {
   id: string;
   name: string;
   description: string | null;
-  budget: number;
+  budget: number | null;
   startDate: string;
   endDate: string;
   status: string;
-  targetPlays: number;
-  actualPlays: number;
+  scheduleType?: string;
+  targetPlays?: number;
+  completedPlays?: number;
+  actualPlays?: number;
+  totalPlays?: number;
+  totalAds?: number;
+  fulfillmentStatus?: string;
   client: Client;
+  package?: AdPackage | null;
   advertisements: Array<{
     id: string;
     title: string;
     duration: number;
-    playCount: number;
+    totalPlays?: number;
+    playCount?: number;
   }>;
-  totalScheduledPlays: number;
-  totalActualPlays: number;
-  fulfillmentRate: number;
-  _count: {
+  totalScheduledPlays?: number;
+  totalActualPlays?: number;
+  fulfillmentRate?: number;
+  _count?: {
     advertisements: number;
-    adSlots: number;
-    invoices: number;
+    adSlots?: number;
+    invoices?: number;
   };
 }
 
 const STATUS_OPTIONS = [
-  { value: "DRAFT", label: "Draft", color: "gray" },
+  { value: "PENDING", label: "Pending", color: "gray" },
   { value: "ACTIVE", label: "Active", color: "green" },
   { value: "PAUSED", label: "Paused", color: "yellow" },
   { value: "COMPLETED", label: "Completed", color: "blue" },
@@ -96,10 +143,14 @@ export default function AdvertisingPage() {
 function AdvertisingContent() {
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [packages, setPackages] = useState<AdPackage[]>([]);
+  const [dayparts, setDayparts] = useState<AdDaypart[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<AdCampaign | null>(
     null
   );
@@ -107,10 +158,26 @@ function AdvertisingContent() {
   // Form state for create campaign
   const [formData, setFormData] = useState({
     clientId: "",
-    status: "DRAFT",
+    status: "PENDING",
+    packageId: "",
+    scheduleType: "TIME_SLOT",
+    targetDaypartId: "",
+    targetProgramId: "",
   });
 
-  console.log("showing campaign:", showCreateDialog);
+  // Form state for edit campaign
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+    budget: "",
+    startDate: "",
+    endDate: "",
+    status: "PENDING",
+    scheduleType: "TIME_SLOT",
+    targetPlays: "",
+    targetDaypartId: "",
+    targetProgramId: "",
+  });
 
   // Stats
   const [stats, setStats] = useState({
@@ -159,12 +226,54 @@ function AdvertisingContent() {
     }
   };
 
+  // Fetch packages for the create form
+  const fetchPackages = async () => {
+    try {
+      const response = await fetch("/api/ads/packages?isActive=true");
+      const data = await response.json();
+
+      if (response.ok) {
+        setPackages(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching packages:", error);
+    }
+  };
+
+  // Fetch dayparts for the create form
+  const fetchDayparts = async () => {
+    try {
+      const response = await fetch("/api/ads/dayparts?isActive=true");
+      const data = await response.json();
+
+      if (response.ok) {
+        setDayparts(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching dayparts:", error);
+    }
+  };
+
+  // Fetch programs for the create form
+  const fetchPrograms = async () => {
+    try {
+      const response = await fetch("/api/programs?limit=100");
+      const data = await response.json();
+
+      if (response.ok) {
+        setPrograms(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching programs:", error);
+    }
+  };
+
   const calculateStats = (campaignsData: AdCampaign[]) => {
     const active = campaignsData.filter((c) => c.status === "ACTIVE").length;
-    const scheduled = campaignsData.filter((c) => c.status === "DRAFT").length;
-    const revenue = campaignsData.reduce((sum, c) => sum + Number(c.budget), 0);
+    const scheduled = campaignsData.filter((c) => c.status === "PENDING").length;
+    const revenue = campaignsData.reduce((sum, c) => sum + Number(c.budget || 0), 0);
     const impressions = campaignsData.reduce(
-      (sum, c) => sum + c.actualPlays,
+      (sum, c) => sum + (c.totalPlays ?? c.actualPlays ?? 0),
       0
     );
 
@@ -179,6 +288,13 @@ function AdvertisingContent() {
   useEffect(() => {
     fetchCampaigns();
     fetchClients();
+    fetchPackages();
+    fetchDayparts();
+    fetchPrograms();
+  }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
   }, [search, statusFilter]);
 
   // Create campaign
@@ -186,16 +302,45 @@ function AdvertisingContent() {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
 
-    const campaignData = {
+    const targetPlaysValue = form.get("targetPlays") as string;
+    const budgetValue = form.get("budget") as string;
+
+    const campaignData: any = {
       clientId: formData.clientId,
       name: form.get("name") as string,
       description: form.get("description") as string,
-      budget: parseFloat(form.get("budget") as string),
       startDate: new Date(form.get("startDate") as string).toISOString(),
       endDate: new Date(form.get("endDate") as string).toISOString(),
-      targetPlays: parseInt(form.get("targetPlays") as string),
       status: formData.status,
+      scheduleType: formData.scheduleType,
     };
+
+    if (budgetValue) {
+      campaignData.budget = parseFloat(budgetValue);
+    }
+
+    if (targetPlaysValue) {
+      campaignData.targetPlays = parseInt(targetPlaysValue);
+    }
+
+    if (formData.packageId) {
+      campaignData.packageId = formData.packageId;
+      // If using a package, auto-set target plays from package
+      const selectedPackage = packages.find((p) => p.id === formData.packageId);
+      if (selectedPackage?.calculatedPlays && !targetPlaysValue) {
+        campaignData.targetPlays = selectedPackage.calculatedPlays;
+      }
+    }
+
+    // Add targetDaypartId for DAYPART_BASED schedule type
+    if (formData.scheduleType === "DAYPART_BASED" && formData.targetDaypartId) {
+      campaignData.targetDaypartId = formData.targetDaypartId;
+    }
+
+    // Add targetProgramId for PROGRAM_BASED schedule type
+    if (formData.scheduleType === "PROGRAM_BASED" && formData.targetProgramId) {
+      campaignData.targetProgramId = formData.targetProgramId;
+    }
 
     try {
       const response = await fetch("/api/ads/campaigns", {
@@ -209,7 +354,7 @@ function AdvertisingContent() {
       if (response.ok) {
         toast.success("Campaign created successfully!");
         setShowCreateDialog(false);
-        setFormData({ clientId: "", status: "DRAFT" });
+        setFormData({ clientId: "", status: "PENDING", packageId: "", scheduleType: "TIME_SLOT", targetDaypartId: "", targetProgramId: "" });
         fetchCampaigns();
       } else {
         toast.error(data.error || "Failed to create campaign");
@@ -239,6 +384,80 @@ function AdvertisingContent() {
     } catch (error) {
       console.error("Error deleting campaign:", error);
       toast.error("Failed to delete campaign");
+    }
+  };
+
+  // Open edit dialog with campaign data
+  const openEditDialog = (campaign: AdCampaign) => {
+    setSelectedCampaign(campaign);
+    setEditFormData({
+      name: campaign.name,
+      description: campaign.description || "",
+      budget: campaign.budget?.toString() || "",
+      startDate: campaign.startDate.split("T")[0],
+      endDate: campaign.endDate.split("T")[0],
+      status: campaign.status,
+      scheduleType: campaign.scheduleType || "TIME_SLOT",
+      targetPlays: campaign.targetPlays?.toString() || "",
+      targetDaypartId: "",
+      targetProgramId: "",
+    });
+    setShowEditDialog(true);
+  };
+
+  // Update campaign
+  const handleUpdateCampaign = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!selectedCampaign) return;
+
+    const updateData: any = {
+      name: editFormData.name,
+      description: editFormData.description || undefined,
+      startDate: new Date(editFormData.startDate).toISOString(),
+      endDate: new Date(editFormData.endDate).toISOString(),
+      status: editFormData.status,
+      scheduleType: editFormData.scheduleType,
+    };
+
+    if (editFormData.budget) {
+      updateData.budget = parseFloat(editFormData.budget);
+    }
+
+    if (editFormData.targetPlays) {
+      updateData.targetPlays = parseInt(editFormData.targetPlays);
+    }
+
+    // Add targetDaypartId for DAYPART_BASED schedule type
+    if (editFormData.scheduleType === "DAYPART_BASED" && editFormData.targetDaypartId) {
+      updateData.targetDaypartId = editFormData.targetDaypartId;
+    }
+
+    // Add targetProgramId for PROGRAM_BASED schedule type
+    if (editFormData.scheduleType === "PROGRAM_BASED" && editFormData.targetProgramId) {
+      updateData.targetProgramId = editFormData.targetProgramId;
+    }
+
+    try {
+      const response = await fetch(`/api/ads/campaigns/${selectedCampaign.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Campaign updated successfully!");
+        setShowEditDialog(false);
+        setSelectedCampaign(null);
+        fetchCampaigns();
+      } else {
+        toast.error(data.error || "Failed to update campaign");
+      }
+    } catch (error) {
+      console.error("Error updating campaign:", error);
+      toast.error("Failed to update campaign");
     }
   };
 
@@ -283,13 +502,27 @@ function AdvertisingContent() {
               Manage ad campaigns and track performance
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateDialog(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-lg transition shadow-lg shadow-purple-500/30"
-          >
-            <Plus className="w-5 h-5" />
-            New Campaign
-          </button>
+          <div className="flex gap-3">
+            <Link href="/advertising/analytics">
+              <button className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition border border-white/20">
+                <BarChart3 className="w-5 h-5" />
+                Analytics
+              </button>
+            </Link>
+            <Link href="/advertising/packages">
+              <button className="flex items-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition border border-white/20">
+                <Package className="w-5 h-5" />
+                Packages
+              </button>
+            </Link>
+            <button
+              onClick={() => setShowCreateDialog(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-lg transition shadow-lg shadow-purple-500/30"
+            >
+              <Plus className="w-5 h-5" />
+              New Campaign
+            </button>
+          </div>
         </div>
       </div>
 
@@ -312,7 +545,7 @@ function AdvertisingContent() {
             <div className="bg-blue-500/20 p-2 rounded-lg">
               <Calendar className="w-5 h-5 text-blue-400" />
             </div>
-            <span className="text-slate-400 text-sm">Draft Campaigns</span>
+            <span className="text-slate-400 text-sm">Pending Campaigns</span>
           </div>
           <p className="text-3xl font-bold text-white">
             {stats.scheduledCampaigns}
@@ -455,64 +688,99 @@ function AdvertisingContent() {
                 </p>
               )}
 
+              {/* Package Info */}
+              {campaign.package && (
+                <div className="mb-4 px-3 py-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-purple-400" />
+                    <span className="text-purple-300 text-sm font-medium">{campaign.package.name}</span>
+                    <span className="text-purple-400/70 text-xs">
+                      • GH₵ {Number(campaign.package.effectivePrice || campaign.package.basePrice).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-white/5 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <DollarSign className="w-4 h-4 text-green-400" />
-                    <span className="text-slate-400 text-xs">Budget</span>
-                  </div>
-                  <p className="text-white font-semibold">
-                    {formatCurrency(Number(campaign.budget))}
-                  </p>
-                </div>
-
                 <div className="bg-white/5 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
                     <Target className="w-4 h-4 text-blue-400" />
                     <span className="text-slate-400 text-xs">Target Plays</span>
                   </div>
                   <p className="text-white font-semibold">
-                    {campaign.targetPlays.toLocaleString()}
+                    {campaign.targetPlays?.toLocaleString() || "∞"}
                   </p>
                 </div>
 
                 <div className="bg-white/5 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <Play className="w-4 h-4 text-purple-400" />
-                    <span className="text-slate-400 text-xs">Actual Plays</span>
+                    <Play className="w-4 h-4 text-green-400" />
+                    <span className="text-slate-400 text-xs">Completed</span>
                   </div>
                   <p className="text-white font-semibold">
-                    {campaign.actualPlays.toLocaleString()}
+                    {(campaign.completedPlays ?? campaign.totalPlays ?? campaign.actualPlays ?? 0).toLocaleString()}
                   </p>
                 </div>
 
                 <div className="bg-white/5 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-orange-400" />
-                    <span className="text-slate-400 text-xs">
-                      Fulfillment
-                    </span>
+                    <DollarSign className="w-4 h-4 text-yellow-400" />
+                    <span className="text-slate-400 text-xs">Budget</span>
                   </div>
                   <p className="text-white font-semibold">
-                    {campaign.fulfillmentRate.toFixed(1)}%
+                    {campaign.budget ? formatCurrency(Number(campaign.budget)) : "Package"}
+                  </p>
+                </div>
+
+                <div className="bg-white/5 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <BarChart3 className="w-4 h-4 text-orange-400" />
+                    <span className="text-slate-400 text-xs">Ads</span>
+                  </div>
+                  <p className="text-white font-semibold">
+                    {(campaign.totalAds ?? campaign._count?.advertisements ?? 0).toLocaleString()}
                   </p>
                 </div>
               </div>
 
-              {/* Progress Bar */}
+              {/* Fulfillment Progress */}
+              {campaign.targetPlays && campaign.targetPlays > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                    <span>Fulfillment</span>
+                    <span>
+                      {Math.round(((campaign.completedPlays || 0) / campaign.targetPlays) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/5 rounded-full h-1.5">
+                    <div
+                      className={`h-1.5 rounded-full transition-all ${
+                        (campaign.completedPlays || 0) >= campaign.targetPlays
+                          ? "bg-green-500"
+                          : "bg-gradient-to-r from-purple-500 to-pink-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, ((campaign.completedPlays || 0) / campaign.targetPlays) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Campaign Duration */}
               <div className="mb-4">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-                  <span>Campaign Progress</span>
+                  <span>Campaign Duration</span>
                   <span>
-                    {campaign.actualPlays} / {campaign.targetPlays}
+                    {Math.ceil((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / (1000 * 60 * 60 * 24))} days
                   </span>
                 </div>
                 <div className="w-full bg-white/5 rounded-full h-2">
                   <div
                     className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all"
                     style={{
-                      width: `${Math.min(campaign.fulfillmentRate, 100)}%`,
+                      width: `${Math.min(Math.max(0, (Date.now() - new Date(campaign.startDate).getTime()) / (new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) * 100), 100)}%`,
                     }}
                   />
                 </div>
@@ -533,9 +801,8 @@ function AdvertisingContent() {
               {/* Footer Stats */}
               <div className="flex items-center justify-between pt-4 border-t border-white/10">
                 <div className="flex gap-4 text-sm text-slate-400">
-                  <span>{campaign._count.advertisements} ads</span>
-                  <span>{campaign._count.adSlots} slots</span>
-                  <span>{campaign._count.invoices} invoices</span>
+                  <span>{campaign._count?.advertisements ?? campaign.totalAds ?? 0} ads</span>
+                  <span>{campaign.advertisements?.length ?? 0} active</span>
                 </div>
 
                 <div className="flex gap-2">
@@ -552,9 +819,7 @@ function AdvertisingContent() {
                     variant="ghost"
                     size="sm"
                     className="text-slate-400 hover:text-white"
-                    onClick={() => {
-                      setSelectedCampaign(campaign);
-                    }}
+                    onClick={() => openEditDialog(campaign)}
                   >
                     <Edit className="w-4 h-4" />
                   </Button>
@@ -626,6 +891,127 @@ function AdvertisingContent() {
               />
             </div>
 
+            {/* Package Selection */}
+            <div>
+              <Label className="text-slate-300">Package (Optional)</Label>
+              <Select
+                value={formData.packageId || "none"}
+                onValueChange={(value) => setFormData({ ...formData, packageId: value === "none" ? "" : value })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue placeholder="Select a package (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No package</SelectItem>
+                  {packages.map((pkg) => (
+                    <SelectItem key={pkg.id} value={pkg.id}>
+                      <div className="flex flex-col">
+                        <span>{pkg.name}</span>
+                        <span className="text-xs text-slate-400">
+                          GH₵ {pkg.effectivePrice.toLocaleString()} • {pkg.calculatedPlays || pkg.totalPlays || "Unlimited"} plays
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formData.packageId && (
+                <p className="text-xs text-green-400 mt-1">
+                  Package pricing will be used for invoicing
+                </p>
+              )}
+            </div>
+
+            {/* Schedule Type */}
+            <div>
+              <Label className="text-slate-300">Schedule Type</Label>
+              <Select
+                value={formData.scheduleType}
+                onValueChange={(value) => setFormData({ ...formData, scheduleType: value, targetDaypartId: "", targetProgramId: "" })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCHEDULE_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div>
+                        <span>{type.label}</span>
+                        <span className="text-xs text-slate-400 ml-2">- {type.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Conditional: Target Daypart (for DAYPART_BASED) */}
+            {formData.scheduleType === "DAYPART_BASED" && (
+              <div>
+                <Label className="text-slate-300">Target Daypart *</Label>
+                <Select
+                  value={formData.targetDaypartId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, targetDaypartId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue placeholder="Select a daypart" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a daypart</SelectItem>
+                    {dayparts.map((daypart) => (
+                      <SelectItem key={daypart.id} value={daypart.id}>
+                        <div className="flex flex-col">
+                          <span>{daypart.name}</span>
+                          <span className="text-xs text-slate-400">
+                            {daypart.startTime} - {daypart.endTime} ({daypart.priceMultiplier}x)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!formData.targetDaypartId && (
+                  <p className="text-xs text-red-400 mt-1">Daypart is required for daypart-based scheduling</p>
+                )}
+                {dayparts.length === 0 && (
+                  <p className="text-xs text-yellow-400 mt-1">
+                    No dayparts available. <Link href="/advertising/packages" className="underline">Create dayparts first</Link>
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Conditional: Target Program (for PROGRAM_BASED) */}
+            {formData.scheduleType === "PROGRAM_BASED" && (
+              <div>
+                <Label className="text-slate-300">Target Program *</Label>
+                <Select
+                  value={formData.targetProgramId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, targetProgramId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue placeholder="Select a program" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a program</SelectItem>
+                    {programs.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!formData.targetProgramId && (
+                  <p className="text-xs text-red-400 mt-1">Program is required for program-based scheduling</p>
+                )}
+                {programs.length === 0 && (
+                  <p className="text-xs text-yellow-400 mt-1">
+                    No programs available. <Link href="/programs" className="underline">Create programs first</Link>
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-slate-300">Budget (GH₵)</Label>
@@ -634,10 +1020,10 @@ function AdvertisingContent() {
                   type="number"
                   step="0.01"
                   min="0"
-                  required
                   placeholder="50000"
                   className="bg-white/5 border-white/10 text-white"
                 />
+                <p className="text-xs text-slate-500 mt-1">Optional if using a package</p>
               </div>
 
               <div>
@@ -646,16 +1032,18 @@ function AdvertisingContent() {
                   name="targetPlays"
                   type="number"
                   min="1"
-                  required
-                  placeholder="150"
+                  placeholder={formData.packageId ? "Auto from package" : "150"}
                   className="bg-white/5 border-white/10 text-white"
                 />
+                <p className="text-xs text-slate-500 mt-1">
+                  {formData.packageId ? "Leave empty to use package plays" : "Required without package"}
+                </p>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-slate-300">Start Date</Label>
+                <Label className="text-slate-300">Start Date *</Label>
                 <Input
                   name="startDate"
                   type="date"
@@ -665,7 +1053,7 @@ function AdvertisingContent() {
               </div>
 
               <div>
-                <Label className="text-slate-300">End Date</Label>
+                <Label className="text-slate-300">End Date *</Label>
                 <Input
                   name="endDate"
                   type="date"
@@ -700,17 +1088,234 @@ function AdvertisingContent() {
                 variant="outline"
                 onClick={() => {
                   setShowCreateDialog(false);
-                  setFormData({ clientId: "", status: "DRAFT" });
+                  setFormData({ clientId: "", status: "PENDING", packageId: "", scheduleType: "TIME_SLOT", targetDaypartId: "", targetProgramId: "" });
                 }}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
-                disabled={!formData.clientId}
+                disabled={
+                  !formData.clientId ||
+                  (formData.scheduleType === "DAYPART_BASED" && !formData.targetDaypartId) ||
+                  (formData.scheduleType === "PROGRAM_BASED" && !formData.targetProgramId)
+                }
                 className="disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Create Campaign
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Campaign Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={(open) => {
+        setShowEditDialog(open);
+        if (!open) setSelectedCampaign(null);
+      }}>
+        <DialogContent className="bg-slate-900 border-white/20 max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Edit Campaign</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Update campaign details
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateCampaign} className="space-y-4">
+            <div>
+              <Label className="text-slate-300">Campaign Name *</Label>
+              <Input
+                value={editFormData.name}
+                onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                required
+                placeholder="e.g., Coca-Cola Summer 2026"
+                className="bg-white/5 border-white/10 text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="text-slate-300">Description</Label>
+              <Textarea
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                placeholder="Campaign description..."
+                className="bg-white/5 border-white/10 text-white"
+                rows={3}
+              />
+            </div>
+
+            {/* Schedule Type */}
+            <div>
+              <Label className="text-slate-300">Schedule Type</Label>
+              <Select
+                value={editFormData.scheduleType}
+                onValueChange={(value) => setEditFormData({ ...editFormData, scheduleType: value, targetDaypartId: "", targetProgramId: "" })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCHEDULE_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div>
+                        <span>{type.label}</span>
+                        <span className="text-xs text-slate-400 ml-2">- {type.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Conditional: Target Daypart (for DAYPART_BASED) */}
+            {editFormData.scheduleType === "DAYPART_BASED" && (
+              <div>
+                <Label className="text-slate-300">Target Daypart *</Label>
+                <Select
+                  value={editFormData.targetDaypartId || "none"}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, targetDaypartId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue placeholder="Select a daypart" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a daypart</SelectItem>
+                    {dayparts.map((daypart) => (
+                      <SelectItem key={daypart.id} value={daypart.id}>
+                        <div className="flex flex-col">
+                          <span>{daypart.name}</span>
+                          <span className="text-xs text-slate-400">
+                            {daypart.startTime} - {daypart.endTime} ({daypart.priceMultiplier}x)
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!editFormData.targetDaypartId && (
+                  <p className="text-xs text-red-400 mt-1">Daypart is required for daypart-based scheduling</p>
+                )}
+              </div>
+            )}
+
+            {/* Conditional: Target Program (for PROGRAM_BASED) */}
+            {editFormData.scheduleType === "PROGRAM_BASED" && (
+              <div>
+                <Label className="text-slate-300">Target Program *</Label>
+                <Select
+                  value={editFormData.targetProgramId || "none"}
+                  onValueChange={(value) => setEditFormData({ ...editFormData, targetProgramId: value === "none" ? "" : value })}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                    <SelectValue placeholder="Select a program" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select a program</SelectItem>
+                    {programs.map((program) => (
+                      <SelectItem key={program.id} value={program.id}>
+                        {program.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!editFormData.targetProgramId && (
+                  <p className="text-xs text-red-400 mt-1">Program is required for program-based scheduling</p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-slate-300">Budget (GH₵)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.budget}
+                  onChange={(e) => setEditFormData({ ...editFormData, budget: e.target.value })}
+                  placeholder="50000"
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+
+              <div>
+                <Label className="text-slate-300">Target Plays</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={editFormData.targetPlays}
+                  onChange={(e) => setEditFormData({ ...editFormData, targetPlays: e.target.value })}
+                  placeholder="150"
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-slate-300">Start Date *</Label>
+                <Input
+                  type="date"
+                  value={editFormData.startDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value })}
+                  required
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+
+              <div>
+                <Label className="text-slate-300">End Date *</Label>
+                <Input
+                  type="date"
+                  value={editFormData.endDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
+                  required
+                  className="bg-white/5 border-white/10 text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-slate-300">Status</Label>
+              <Select
+                value={editFormData.status}
+                onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
+              >
+                <SelectTrigger className="bg-white/5 border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>
+                      {status.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowEditDialog(false);
+                  setSelectedCampaign(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !editFormData.name ||
+                  (editFormData.scheduleType === "DAYPART_BASED" && !editFormData.targetDaypartId) ||
+                  (editFormData.scheduleType === "PROGRAM_BASED" && !editFormData.targetProgramId)
+                }
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Update Campaign
               </Button>
             </div>
           </form>

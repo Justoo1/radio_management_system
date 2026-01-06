@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { updateAdCampaignSchema } from "@/lib/validations/advertisement.validation";
 import { hasFeature } from "@/lib/subscription-access";
 
-// GET /api/ads/campaigns/[id] - Get single campaign
+// GET /api/ads/campaigns/[id] - Get single campaign with full details
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -46,10 +46,50 @@ export async function GET(
       },
       include: {
         client: true,
+        package: {
+          include: {
+            daypart: true,
+            program: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        targetProgram: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        targetDaypart: true,
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            status: true,
+            totalAmount: true,
+          },
+        },
         advertisements: {
           include: {
-            mediaFile: true,
-            slots: true,
+            mediaFile: {
+              select: {
+                id: true,
+                name: true,
+                url: true,
+                duration: true,
+              },
+            },
+            slots: {
+              orderBy: { scheduledDate: "asc" },
+            },
+            _count: {
+              select: {
+                playHistory: true,
+              },
+            },
           },
         },
       },
@@ -62,23 +102,71 @@ export async function GET(
       );
     }
 
-    // Calculate stats from advertisements and their slots
+    // Calculate comprehensive stats
     const totalAds = campaign.advertisements.length;
     const totalSlots = campaign.advertisements.reduce(
       (sum, ad) => sum + ad.slots.length,
       0
     );
-    const totalPlayed = campaign.advertisements.reduce(
+    const playedSlots = campaign.advertisements.reduce(
       (sum, ad) => sum + ad.slots.filter(s => s.wasPlayed).length,
       0
     );
+    const totalPlays = campaign.advertisements.reduce(
+      (sum, ad) => sum + ad.totalPlays,
+      0
+    );
+
+    // Get play history stats
+    const playHistoryStats = await prisma.adPlayHistory.groupBy({
+      by: ["playStatus"],
+      where: {
+        advertisement: {
+          campaignId: id,
+        },
+      },
+      _count: true,
+    });
+
+    const playStats = {
+      completed: playHistoryStats.find(s => s.playStatus === "COMPLETED")?._count || 0,
+      partial: playHistoryStats.find(s => s.playStatus === "PARTIAL")?._count || 0,
+      skipped: playHistoryStats.find(s => s.playStatus === "SKIPPED")?._count || 0,
+      failed: playHistoryStats.find(s => s.playStatus === "FAILED")?._count || 0,
+    };
+
+    // Calculate fulfillment percentage
+    const fulfillmentRate = campaign.targetPlays
+      ? Math.round((campaign.completedPlays / campaign.targetPlays) * 100)
+      : null;
+
+    // Calculate days remaining
+    const now = new Date();
+    const daysRemaining = Math.max(
+      0,
+      Math.ceil((campaign.endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    const totalDays = Math.ceil(
+      (campaign.endDate.getTime() - campaign.startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const elapsedDays = totalDays - daysRemaining;
 
     return NextResponse.json({
       data: {
         ...campaign,
-        totalAds,
-        totalSlots,
-        totalPlayed,
+        stats: {
+          totalAds,
+          totalSlots,
+          playedSlots,
+          totalPlays,
+          completedPlays: campaign.completedPlays,
+          targetPlays: campaign.targetPlays,
+          fulfillmentRate,
+          daysRemaining,
+          totalDays,
+          elapsedDays,
+          playStats,
+        },
       },
     });
   } catch (error: any) {
@@ -142,7 +230,7 @@ export async function PATCH(
     const body = await request.json();
     const validated = updateAdCampaignSchema.parse(body);
 
-    // If changing client, verify it belongs to organization
+    // Verify client if changing
     if (validated.clientId) {
       const client = await prisma.client.findFirst({
         where: {
@@ -159,22 +247,94 @@ export async function PATCH(
       }
     }
 
-    const updateData: any = { ...validated };
+    // Verify package if provided
+    if (validated.packageId) {
+      const pkg = await prisma.adPackage.findFirst({
+        where: {
+          id: validated.packageId,
+          organizationId,
+        },
+      });
 
-    if (validated.startDate) {
-      updateData.startDate = new Date(validated.startDate);
+      if (!pkg) {
+        return NextResponse.json(
+          { error: "Package not found" },
+          { status: 404 }
+        );
+      }
     }
 
-    if (validated.endDate) {
-      updateData.endDate = new Date(validated.endDate);
+    // Verify target program if provided
+    if (validated.targetProgramId) {
+      const program = await prisma.program.findFirst({
+        where: {
+          id: validated.targetProgramId,
+          organizationId,
+        },
+      });
+
+      if (!program) {
+        return NextResponse.json(
+          { error: "Target program not found" },
+          { status: 404 }
+        );
+      }
     }
+
+    // Verify target daypart if provided
+    if (validated.targetDaypartId) {
+      const daypart = await prisma.adDaypart.findFirst({
+        where: {
+          id: validated.targetDaypartId,
+          organizationId,
+        },
+      });
+
+      if (!daypart) {
+        return NextResponse.json(
+          { error: "Target daypart not found" },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Build update data
+    const updateData: any = {};
+
+    if (validated.clientId !== undefined) updateData.clientId = validated.clientId;
+    if (validated.name !== undefined) updateData.name = validated.name;
+    if (validated.description !== undefined) updateData.description = validated.description;
+    if (validated.budget !== undefined) updateData.budget = validated.budget;
+    if (validated.startDate !== undefined) updateData.startDate = new Date(validated.startDate);
+    if (validated.endDate !== undefined) updateData.endDate = new Date(validated.endDate);
+    if (validated.status !== undefined) updateData.status = validated.status;
+    if (validated.packageId !== undefined) updateData.packageId = validated.packageId;
+    if (validated.scheduleType !== undefined) updateData.scheduleType = validated.scheduleType;
+    if (validated.targetPlays !== undefined) updateData.targetPlays = validated.targetPlays;
+    if (validated.targetProgramId !== undefined) updateData.targetProgramId = validated.targetProgramId;
+    if (validated.targetDaypartId !== undefined) updateData.targetDaypartId = validated.targetDaypartId;
+    if (validated.fulfillmentStatus !== undefined) updateData.fulfillmentStatus = validated.fulfillmentStatus;
 
     const updatedCampaign = await prisma.adCampaign.update({
       where: { id },
       data: updateData,
       include: {
         client: true,
-        advertisements: true,
+        package: true,
+        targetProgram: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        targetDaypart: true,
+        advertisements: {
+          select: {
+            id: true,
+            title: true,
+            totalPlays: true,
+          },
+        },
       },
     });
 
@@ -239,6 +399,9 @@ export async function DELETE(
         id,
         organizationId,
       },
+      include: {
+        invoice: true,
+      },
     });
 
     if (!existingCampaign) {
@@ -248,7 +411,15 @@ export async function DELETE(
       );
     }
 
-    // Delete campaign (cascade will handle advertisements and their slots)
+    // Warn if campaign has invoice
+    if (existingCampaign.invoiceId) {
+      return NextResponse.json(
+        { error: "Cannot delete campaign with associated invoice. Delete or unlink the invoice first." },
+        { status: 400 }
+      );
+    }
+
+    // Delete campaign (cascade will handle advertisements, slots, and play history)
     await prisma.adCampaign.delete({
       where: { id },
     });

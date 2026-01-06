@@ -66,6 +66,9 @@ model Organization {
   smsTemplates   SMSTemplate[]         @relation("OrganizationSMSTemplates")
   mediaFiles     MediaFile[]
   adCampaigns    AdCampaign[]
+  adDayparts     AdDaypart[]
+  adPackages     AdPackage[]
+  adPlayHistory  AdPlayHistory[]
   contracts      Contract[]
   invoices       Invoice[]
   expenses       Expense[]             @relation("OrganizationExpenses")
@@ -377,6 +380,9 @@ model User {
   onAirSessions OnAirNow[]        @relation("OnAirPresenter")
   showNotes     ShowNote[]        @relation("ShowNotePresenter")
   songPlays     SongPlayHistory[] @relation("SongPlayPresenter")
+
+  // Advertising
+  adPlayHistory AdPlayHistory[] @relation("AdPlayPresenter")
 
   // Listener Chat Moderation
   moderatedChatMessages ListenerChatMessage[] @relation("ChatMessageModerator")
@@ -756,6 +762,11 @@ model Program {
   listenerMetrics     ListenerMetrics[]
   ratings             ProgramRating[]
 
+  // Advertising
+  adPackages     AdPackage[]    @relation("PackageProgram")
+  adPlayHistory  AdPlayHistory[] @relation("AdPlayProgram")
+  targetCampaigns AdCampaign[]   @relation("CampaignTargetProgram")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1050,6 +1061,90 @@ enum MediaType {
 // ADVERTISING MANAGEMENT (Organization-Scoped)
 // ============================================
 
+// Daypart definitions for pricing tiers (e.g., Prime Time, Morning Drive)
+model AdDaypart {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name      String // "Prime Time", "Morning Drive", "Overnight"
+  startTime String // "HH:MM"
+  endTime   String // "HH:MM"
+
+  // Days of the week this daypart applies
+  monday    Boolean @default(true)
+  tuesday   Boolean @default(true)
+  wednesday Boolean @default(true)
+  thursday  Boolean @default(true)
+  friday    Boolean @default(true)
+  saturday  Boolean @default(true)
+  sunday    Boolean @default(true)
+
+  priceMultiplier Decimal @default(1.0) @db.Decimal(4, 2) // e.g., 1.5 for prime time
+  isActive        Boolean @default(true)
+
+  // Relations
+  packages  AdPackage[]
+  campaigns AdCampaign[] @relation("CampaignTargetDaypart")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("ad_dayparts")
+}
+
+// Advertising packages (e.g., "50 Play Package", "Prime Time Weekly")
+model AdPackage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String // "50 Play Package", "Prime Time Weekly"
+  description String? @db.Text
+
+  packageType AdPackageType
+
+  // For PLAY_COUNT type
+  totalPlays Int? // e.g., 50 plays
+
+  // For TIME_SLOT type
+  durationDays Int? // e.g., 7 days
+  playsPerDay  Int? // e.g., 5 plays per day
+
+  // Pricing
+  basePrice Decimal @db.Decimal(10, 2)
+  currency  String  @default("GHS")
+
+  // Optional restrictions
+  daypartId String?
+  daypart   AdDaypart? @relation(fields: [daypartId], references: [id])
+
+  programId String?
+  program   Program? @relation("PackageProgram", fields: [programId], references: [id])
+
+  maxDuration Int     @default(60) // Max ad duration in seconds
+  isActive    Boolean @default(true)
+
+  // Relations
+  campaigns AdCampaign[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([packageType])
+  @@map("ad_packages")
+}
+
+enum AdPackageType {
+  PLAY_COUNT // "50 plays for GH₵2000"
+  TIME_SLOT // "5 plays/day for 7 days"
+  PROGRAM_BASED // "During Morning Show only"
+  DAYPART // "All prime time slots"
+}
+
 model AdCampaign {
   id String @id @default(cuid())
 
@@ -1071,6 +1166,31 @@ model AdCampaign {
 
   status AdCampaignStatus @default(PENDING)
 
+  // Package-based pricing
+  packageId String?
+  package   AdPackage? @relation(fields: [packageId], references: [id])
+
+  // Scheduling mode
+  scheduleType AdScheduleType @default(TIME_SLOT)
+
+  // Play tracking
+  targetPlays    Int? // Target number of plays from package
+  completedPlays Int  @default(0) // Actual plays completed
+
+  // Target constraints
+  targetProgramId String?
+  targetProgram   Program? @relation("CampaignTargetProgram", fields: [targetProgramId], references: [id])
+
+  targetDaypartId String?
+  targetDaypart   AdDaypart? @relation("CampaignTargetDaypart", fields: [targetDaypartId], references: [id])
+
+  // Invoice integration
+  invoiceId String?  @unique
+  invoice   Invoice? @relation("CampaignInvoice", fields: [invoiceId], references: [id])
+
+  // Fulfillment status
+  fulfillmentStatus CampaignFulfillmentStatus @default(PENDING)
+
   // Relations
   advertisements Advertisement[]
 
@@ -1081,6 +1201,8 @@ model AdCampaign {
   @@index([clientId])
   @@index([status])
   @@index([startDate, endDate])
+  @@index([packageId])
+  @@index([fulfillmentStatus])
   @@map("ad_campaigns")
 }
 
@@ -1090,6 +1212,22 @@ enum AdCampaignStatus {
   PAUSED
   COMPLETED
   CANCELLED
+}
+
+enum AdScheduleType {
+  TIME_SLOT // Specific date/time slots
+  FLEXIBLE // Play anytime within campaign dates
+  PROGRAM_BASED // Only during specific program
+  DAYPART_BASED // Only during specific daypart
+}
+
+enum CampaignFulfillmentStatus {
+  PENDING // Not started
+  IN_PROGRESS // Started playing
+  ON_TRACK // Fulfillment on schedule
+  BEHIND // Behind schedule
+  COMPLETED // All plays delivered
+  OVER_DELIVERED // More plays than target
 }
 
 model Advertisement {
@@ -1109,6 +1247,9 @@ model Advertisement {
   totalPlays Int      @default(0)
 
   status AdStatus @default(ACTIVE)
+
+  // Play history
+  playHistory AdPlayHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1137,6 +1278,9 @@ model AdSlot {
 
   notes String? @db.Text
 
+  // Play history
+  playHistory AdPlayHistory[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1144,6 +1288,58 @@ model AdSlot {
   @@index([scheduledDate])
   @@index([wasPlayed])
   @@map("ad_slots")
+}
+
+// Detailed play history for analytics
+model AdPlayHistory {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  advertisementId String
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id], onDelete: Cascade)
+
+  adSlotId String?
+  adSlot   AdSlot? @relation(fields: [adSlotId], references: [id])
+
+  playedAt     DateTime @default(now())
+  playDuration Int // Actual seconds played
+
+  // Program context
+  programId String?
+  program   Program? @relation("AdPlayProgram", fields: [programId], references: [id])
+
+  // Presenter who played the ad
+  presenterId String?
+  presenter   User? @relation("AdPlayPresenter", fields: [presenterId], references: [id])
+
+  // Daypart context
+  daypartName String?
+
+  // Play status
+  playStatus AdPlayStatus @default(COMPLETED)
+
+  // Time context for analytics
+  timeOfDay String? // "HH:MM"
+  dayOfWeek Int? // 0-6
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([advertisementId])
+  @@index([playedAt])
+  @@index([programId])
+  @@index([playStatus])
+  @@map("ad_play_history")
+}
+
+enum AdPlayStatus {
+  COMPLETED // Full play
+  PARTIAL // Partially played
+  SKIPPED // Manually skipped
+  FAILED // Technical failure
 }
 
 // ============================================
@@ -1229,6 +1425,9 @@ model Invoice {
   // Relations
   items    InvoiceItem[]
   payments Payment[]
+
+  // Ad Campaign (one-to-one)
+  adCampaign AdCampaign? @relation("CampaignInvoice")
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt

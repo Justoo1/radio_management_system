@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  createAdSlotSchema,
-  adSlotFilterSchema,
+  createAdDaypartSchema,
+  adDaypartFilterSchema,
 } from "@/lib/validations/advertisement.validation";
 import { hasFeature } from "@/lib/subscription-access";
 
-// GET /api/ads/slots - List ad slots
+// GET /api/ads/dayparts - List dayparts
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if feature is enabled
     const organization = await prisma.organization.findUnique({
       where: { id: organizationId },
       select: { enabledFeatures: true },
@@ -37,69 +38,58 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Parse query parameters
     const searchParams = request.nextUrl.searchParams;
     const filterInput = {
-      advertisementId: searchParams.get("advertisementId") || undefined,
-      wasPlayed: searchParams.get("wasPlayed") === "true" ? true : searchParams.get("wasPlayed") === "false" ? false : undefined,
+      isActive: searchParams.get("isActive") === "true" ? true :
+                searchParams.get("isActive") === "false" ? false : undefined,
+      search: searchParams.get("search") || undefined,
       limit: parseInt(searchParams.get("limit") || "50"),
       offset: parseInt(searchParams.get("offset") || "0"),
     };
 
-    const validated = adSlotFilterSchema.parse(filterInput);
+    const validated = adDaypartFilterSchema.parse(filterInput);
 
+    // Build where clause
     const where: any = {
-      advertisement: {
-        campaign: {
-          organizationId,
-        },
-      },
+      organizationId,
     };
 
-    if (validated.advertisementId) {
-      where.advertisementId = validated.advertisementId;
+    if (validated.isActive !== undefined) {
+      where.isActive = validated.isActive;
     }
 
-    if (validated.wasPlayed !== undefined) {
-      where.wasPlayed = validated.wasPlayed;
+    if (validated.search) {
+      where.name = { contains: validated.search, mode: "insensitive" };
     }
 
-    const [adSlots, total] = await Promise.all([
-      prisma.adSlot.findMany({
+    // Fetch dayparts
+    const [dayparts, total] = await Promise.all([
+      prisma.adDaypart.findMany({
         where,
         take: validated.limit,
         skip: validated.offset,
-        orderBy: [
-          { scheduledDate: "asc" },
-          { scheduledTime: "asc" },
-        ],
+        orderBy: { startTime: "asc" },
         include: {
-          advertisement: {
+          _count: {
             select: {
-              id: true,
-              title: true,
-              duration: true,
-              campaign: {
-                select: {
-                  id: true,
-                  name: true,
-                  status: true,
-                },
-              },
+              packages: true,
+              campaigns: true,
             },
           },
         },
       }),
-      prisma.adSlot.count({ where }),
+      prisma.adDaypart.count({ where }),
     ]);
 
     return NextResponse.json({
-      data: adSlots,
+      data: dayparts,
       total,
       limit: validated.limit,
       offset: validated.offset,
     });
   } catch (error: any) {
-    console.error("Error fetching ad slots:", error);
+    console.error("Error fetching dayparts:", error);
 
     if (error.name === "ZodError") {
       return NextResponse.json(
@@ -109,13 +99,13 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch ad slots" },
+      { error: "Failed to fetch dayparts" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/ads/slots - Create ad slot
+// POST /api/ads/dayparts - Create daypart
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
@@ -133,6 +123,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if feature is enabled
     const organization = await prisma.organization.findUnique({
       where: { id: organizationId },
       select: { enabledFeatures: true },
@@ -146,58 +137,51 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const validated = createAdSlotSchema.parse(body);
+    const validated = createAdDaypartSchema.parse(body);
 
-    // Verify advertisement belongs to organization's campaign
-    const advertisement = await prisma.advertisement.findFirst({
+    // Check if daypart name already exists
+    const existing = await prisma.adDaypart.findFirst({
       where: {
-        id: validated.advertisementId,
-        campaign: {
-          organizationId,
-        },
+        organizationId,
+        name: validated.name,
       },
     });
 
-    if (!advertisement) {
+    if (existing) {
       return NextResponse.json(
-        { error: "Advertisement not found" },
-        { status: 404 }
+        { error: "A daypart with this name already exists" },
+        { status: 400 }
       );
     }
 
-    const adSlot = await prisma.adSlot.create({
+    // Create daypart
+    const daypart = await prisma.adDaypart.create({
       data: {
-        advertisementId: validated.advertisementId,
-        scheduledDate: new Date(validated.scheduledDate || new Date()),
-        scheduledTime: validated.scheduledTime || "00:00",
-        notes: validated.notes,
-      },
-      include: {
-        advertisement: {
-          select: {
-            id: true,
-            title: true,
-            duration: true,
-            campaign: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
+        organizationId,
+        name: validated.name,
+        startTime: validated.startTime,
+        endTime: validated.endTime,
+        monday: validated.monday,
+        tuesday: validated.tuesday,
+        wednesday: validated.wednesday,
+        thursday: validated.thursday,
+        friday: validated.friday,
+        saturday: validated.saturday,
+        sunday: validated.sunday,
+        priceMultiplier: validated.priceMultiplier,
+        isActive: validated.isActive,
       },
     });
 
     return NextResponse.json(
       {
-        data: adSlot,
-        message: "Ad slot created successfully",
+        data: daypart,
+        message: "Daypart created successfully",
       },
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Error creating ad slot:", error);
+    console.error("Error creating daypart:", error);
 
     if (error.name === "ZodError") {
       return NextResponse.json(
@@ -206,8 +190,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "A daypart with this name already exists" },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Failed to create ad slot" },
+      { error: "Failed to create daypart" },
       { status: 500 }
     );
   }

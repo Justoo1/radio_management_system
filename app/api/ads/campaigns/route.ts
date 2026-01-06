@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
     const filterInput = {
       clientId: searchParams.get("clientId") || undefined,
       status: searchParams.get("status") || undefined,
+      fulfillmentStatus: searchParams.get("fulfillmentStatus") || undefined,
+      scheduleType: searchParams.get("scheduleType") || undefined,
+      packageId: searchParams.get("packageId") || undefined,
       search: searchParams.get("search") || undefined,
       startDate: searchParams.get("startDate") || undefined,
       endDate: searchParams.get("endDate") || undefined,
@@ -63,6 +66,18 @@ export async function GET(request: NextRequest) {
 
     if (validated.status) {
       where.status = validated.status;
+    }
+
+    if (validated.fulfillmentStatus) {
+      where.fulfillmentStatus = validated.fulfillmentStatus;
+    }
+
+    if (validated.scheduleType) {
+      where.scheduleType = validated.scheduleType;
+    }
+
+    if (validated.packageId) {
+      where.packageId = validated.packageId;
     }
 
     if (validated.search) {
@@ -96,6 +111,26 @@ export async function GET(request: NextRequest) {
               phone: true,
             },
           },
+          package: {
+            select: {
+              id: true,
+              name: true,
+              packageType: true,
+              basePrice: true,
+            },
+          },
+          targetProgram: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          targetDaypart: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           advertisements: {
             select: {
               id: true,
@@ -123,10 +158,16 @@ export async function GET(request: NextRequest) {
         0
       );
 
+      // Calculate fulfillment rate
+      const fulfillmentRate = campaign.targetPlays
+        ? Math.round((campaign.completedPlays / campaign.targetPlays) * 100)
+        : null;
+
       return {
         ...campaign,
         totalPlays,
         totalAds: campaign._count.advertisements,
+        fulfillmentRate,
       };
     });
 
@@ -202,6 +243,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verify package if provided
+    if (validated.packageId) {
+      const pkg = await prisma.adPackage.findFirst({
+        where: {
+          id: validated.packageId,
+          organizationId,
+        },
+      });
+
+      if (!pkg) {
+        return NextResponse.json(
+          { error: "Package not found" },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Verify target program if provided
+    if (validated.targetProgramId) {
+      const program = await prisma.program.findFirst({
+        where: {
+          id: validated.targetProgramId,
+          organizationId,
+        },
+      });
+
+      if (!program) {
+        return NextResponse.json(
+          { error: "Target program not found" },
+          { status: 404 }
+        );
+      }
+    }
+
+    // Verify target daypart if provided
+    if (validated.targetDaypartId) {
+      const daypart = await prisma.adDaypart.findFirst({
+        where: {
+          id: validated.targetDaypartId,
+          organizationId,
+        },
+      });
+
+      if (!daypart) {
+        return NextResponse.json(
+          { error: "Target daypart not found" },
+          { status: 404 }
+        );
+      }
+    }
+
     // Create campaign
     const campaign = await prisma.adCampaign.create({
       data: {
@@ -213,6 +305,11 @@ export async function POST(request: NextRequest) {
         startDate: new Date(validated.startDate),
         endDate: new Date(validated.endDate),
         status: validated.status,
+        packageId: validated.packageId,
+        scheduleType: validated.scheduleType,
+        targetPlays: validated.targetPlays,
+        targetProgramId: validated.targetProgramId,
+        targetDaypartId: validated.targetDaypartId,
       },
       include: {
         client: {
@@ -220,6 +317,26 @@ export async function POST(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+          },
+        },
+        package: {
+          select: {
+            id: true,
+            name: true,
+            packageType: true,
+            basePrice: true,
+          },
+        },
+        targetProgram: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        targetDaypart: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
