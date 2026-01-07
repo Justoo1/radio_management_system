@@ -55,6 +55,23 @@ import {
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Legend,
+  AreaChart,
+  Area,
+} from "recharts";
 
 interface Client {
   id: string;
@@ -175,6 +192,46 @@ interface Campaign {
   };
 }
 
+interface AnalyticsData {
+  summary: {
+    totalPlays: number;
+    completedPlays: number;
+    targetPlays: number | null;
+    fulfillmentRate: number | null;
+    completionRate: number;
+    totalDuration: number;
+    avgDuration: number;
+    campaignDays: number;
+    daysElapsed: number;
+  };
+  chartData: {
+    byStatus: Array<{ name: string; value: number }>;
+    byDaypart: Array<{ name: string; value: number }>;
+    byDayOfWeek: Array<{ name: string; value: number }>;
+    byHour: Array<{ hour: string; value: number }>;
+    byProgram: Array<{ name: string; value: number }>;
+    timeline: Array<{ date: string; count: number; cumulative: number; targetPercent: number | null }>;
+  };
+}
+
+const CHART_COLORS = [
+  "#8b5cf6", // purple
+  "#ec4899", // pink
+  "#06b6d4", // cyan
+  "#10b981", // green
+  "#f59e0b", // amber
+  "#ef4444", // red
+  "#6366f1", // indigo
+  "#84cc16", // lime
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  COMPLETED: "#10b981",
+  PARTIAL: "#f59e0b",
+  SKIPPED: "#f97316",
+  FAILED: "#ef4444",
+};
+
 const STATUS_OPTIONS = [
   { value: "PENDING", label: "Pending", color: "gray" },
   { value: "ACTIVE", label: "Active", color: "green" },
@@ -230,6 +287,10 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
   // Ad slots state
   const [adSlots, setAdSlots] = useState<AdSlot[]>([]);
   const [adSlotsLoading, setAdSlotsLoading] = useState(false);
+
+  // Analytics state
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Dialog states
   const [showAddAdDialog, setShowAddAdDialog] = useState(false);
@@ -336,6 +397,23 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     }
   };
 
+  // Fetch analytics data
+  const fetchAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true);
+      const response = await fetch(`/api/ads/campaigns/${campaignId}/analytics`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setAnalytics(data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchCampaign();
     fetchPrograms();
@@ -345,6 +423,9 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
   useEffect(() => {
     if (activeTab === "plays" && campaign) {
       fetchPlayHistory();
+    }
+    if (activeTab === "analytics" && campaign) {
+      fetchAnalytics();
     }
   }, [activeTab, campaign]);
 
@@ -1004,17 +1085,291 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
 
         {/* Analytics Tab */}
         <TabsContent value="analytics" className="space-y-6">
-          <div className="bg-white/10 backdrop-blur-xl rounded-xl p-12 border border-white/20 text-center">
-            <div className="max-w-md mx-auto">
-              <div className="bg-orange-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <TrendingUp className="w-10 h-10 text-orange-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-white mb-4">Analytics Coming Soon</h3>
-              <p className="text-slate-400">
-                Detailed analytics with charts showing play distribution by time, program, and daypart will be available here.
-              </p>
+          {analyticsLoading ? (
+            <div className="bg-white/10 backdrop-blur-xl rounded-xl p-12 border border-white/20 text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-400" />
+              <p className="text-slate-400 mt-4">Loading analytics...</p>
             </div>
-          </div>
+          ) : !analytics || analytics.summary.totalPlays === 0 ? (
+            <div className="bg-white/10 backdrop-blur-xl rounded-xl p-12 border border-white/20 text-center">
+              <div className="max-w-md mx-auto">
+                <div className="bg-orange-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <BarChart3 className="w-10 h-10 text-orange-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-4">No Analytics Data Yet</h3>
+                <p className="text-slate-400">
+                  Analytics will appear here once ads from this campaign are played. Start recording ad plays to see insights.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Play className="w-4 h-4 text-green-400" />
+                    <span className="text-slate-400 text-xs">Total Plays</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{analytics.summary.totalPlays}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span className="text-slate-400 text-xs">Completion Rate</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{analytics.summary.completionRate.toFixed(1)}%</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                    <span className="text-slate-400 text-xs">Avg Duration</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">{analytics.summary.avgDuration.toFixed(1)}s</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-4 border border-white/20">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Target className="w-4 h-4 text-purple-400" />
+                    <span className="text-slate-400 text-xs">Fulfillment</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {analytics.summary.fulfillmentRate !== null
+                      ? `${analytics.summary.fulfillmentRate.toFixed(1)}%`
+                      : "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Timeline Chart */}
+              {analytics.chartData.timeline.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Play Timeline</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={analytics.chartData.timeline}>
+                        <defs>
+                          <linearGradient id="colorPlays" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis
+                          dataKey="date"
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          tickFormatter={(value) => new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        />
+                        <YAxis stroke="#9ca3af" fontSize={12} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                          labelFormatter={(value) => new Date(value).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="cumulative"
+                          stroke="#8b5cf6"
+                          fillOpacity={1}
+                          fill="url(#colorPlays)"
+                          name="Cumulative Plays"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#ec4899"
+                          strokeWidth={2}
+                          dot={false}
+                          name="Daily Plays"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Charts Row 1: Status & Daypart */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Play Status Distribution */}
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Play Status</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={analytics.chartData.byStatus}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          labelLine={false}
+                        >
+                          {analytics.chartData.byStatus.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={STATUS_COLORS[entry.name] || CHART_COLORS[index % CHART_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Daypart Distribution */}
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Plays by Daypart</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.chartData.byDaypart} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis type="number" stroke="#9ca3af" fontSize={12} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          width={100}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Plays" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts Row 2: Day of Week & Hour */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Day of Week */}
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Plays by Day of Week</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.chartData.byDayOfWeek}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
+                        <YAxis stroke="#9ca3af" fontSize={12} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Bar dataKey="value" fill="#ec4899" radius={[4, 4, 0, 0]} name="Plays" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Hourly Distribution */}
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Plays by Hour</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.chartData.byHour}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis
+                          dataKey="hour"
+                          stroke="#9ca3af"
+                          fontSize={10}
+                          interval={2}
+                        />
+                        <YAxis stroke="#9ca3af" fontSize={12} />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Plays" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Programs */}
+              {analytics.chartData.byProgram.length > 0 && (
+                <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-4">Top Programs</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={analytics.chartData.byProgram} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis type="number" stroke="#9ca3af" fontSize={12} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          stroke="#9ca3af"
+                          fontSize={12}
+                          width={150}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "#1e293b",
+                            border: "1px solid #475569",
+                            borderRadius: "8px",
+                          }}
+                        />
+                        <Bar dataKey="value" fill="#10b981" radius={[0, 4, 4, 0]} name="Plays" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Stats */}
+              <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-4">Campaign Stats</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm">Total Air Time</p>
+                    <p className="text-xl font-bold text-white">
+                      {Math.floor(analytics.summary.totalDuration / 60)}m {analytics.summary.totalDuration % 60}s
+                    </p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm">Campaign Days</p>
+                    <p className="text-xl font-bold text-white">{analytics.summary.campaignDays}</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm">Days Elapsed</p>
+                    <p className="text-xl font-bold text-white">{analytics.summary.daysElapsed}</p>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <p className="text-slate-400 text-sm">Avg Plays/Day</p>
+                    <p className="text-xl font-bold text-white">
+                      {analytics.summary.daysElapsed > 0
+                        ? (analytics.summary.totalPlays / analytics.summary.daysElapsed).toFixed(1)
+                        : "0"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </TabsContent>
       </Tabs>
 
