@@ -25,6 +25,7 @@ import {
   Volume2,
   Download,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -262,6 +263,12 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     notes: "",
   });
 
+  // Loading states for form submissions
+  const [addingAd, setAddingAd] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [recordingPlay, setRecordingPlay] = useState(false);
+  const [deletingAdId, setDeletingAdId] = useState<string | null>(null);
+
   // Fetch campaign details
   const fetchCampaign = async () => {
     try {
@@ -344,6 +351,7 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
   // Add advertisement
   const handleAddAd = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddingAd(true);
 
     try {
       const response = await fetch("/api/ads/advertisements", {
@@ -371,12 +379,15 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     } catch (error) {
       console.error("Error adding advertisement:", error);
       toast.error("Failed to add advertisement");
+    } finally {
+      setAddingAd(false);
     }
   };
 
   // Generate invoice
   const handleGenerateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
+    setGeneratingInvoice(true);
 
     try {
       const response = await fetch(`/api/ads/campaigns/${campaignId}/invoice`, {
@@ -401,12 +412,15 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     } catch (error) {
       console.error("Error generating invoice:", error);
       toast.error("Failed to generate invoice");
+    } finally {
+      setGeneratingInvoice(false);
     }
   };
 
   // Delete advertisement
   const handleDeleteAd = async (adId: string) => {
     if (!confirm("Are you sure you want to delete this advertisement?")) return;
+    setDeletingAdId(adId);
 
     try {
       const response = await fetch(`/api/ads/advertisements/${adId}`, {
@@ -423,6 +437,8 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     } catch (error) {
       console.error("Error deleting advertisement:", error);
       toast.error("Failed to delete advertisement");
+    } finally {
+      setDeletingAdId(null);
     }
   };
 
@@ -435,6 +451,7 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
       return;
     }
 
+    setRecordingPlay(true);
     const selectedAd = campaign?.advertisements.find(
       (ad) => ad.id === recordPlayForm.advertisementId
     );
@@ -476,6 +493,8 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
     } catch (error) {
       console.error("Error recording ad play:", error);
       toast.error("Failed to record ad play");
+    } finally {
+      setRecordingPlay(false);
     }
   };
 
@@ -879,6 +898,7 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
                         className="text-blue-400 hover:text-blue-300"
                         onClick={() => openRecordPlayDialog(ad.id)}
                         title="Record Play"
+                        disabled={deletingAdId === ad.id}
                       >
                         <Play className="w-4 h-4" />
                       </Button>
@@ -887,8 +907,13 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
                         size="sm"
                         className="text-red-400 hover:text-red-300"
                         onClick={() => handleDeleteAd(ad.id)}
+                        disabled={deletingAdId !== null}
                       >
-                        <Trash2 className="w-4 h-4" />
+                        {deletingAdId === ad.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1064,10 +1089,20 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
                 type="button"
                 variant="outline"
                 onClick={() => setShowAddAdDialog(false)}
+                disabled={addingAd}
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Advertisement</Button>
+              <Button type="submit" disabled={addingAd}>
+                {addingAd ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Advertisement"
+                )}
+              </Button>
             </div>
           </form>
         </DialogContent>
@@ -1126,11 +1161,23 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
                 type="button"
                 variant="outline"
                 onClick={() => setShowGenerateInvoiceDialog(false)}
+                disabled={generatingInvoice}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                Generate Invoice
+              <Button
+                type="submit"
+                className="bg-green-600 hover:bg-green-700"
+                disabled={generatingInvoice}
+              >
+                {generatingInvoice ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate Invoice"
+                )}
               </Button>
             </div>
           </form>
@@ -1269,6 +1316,7 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
               <Button
                 type="button"
                 variant="outline"
+                disabled={recordingPlay}
                 onClick={() => {
                   setShowRecordPlayDialog(false);
                   setRecordPlayForm({
@@ -1285,11 +1333,20 @@ function CampaignDetailContent({ campaignId }: { campaignId: string }) {
               </Button>
               <Button
                 type="submit"
-                disabled={!recordPlayForm.advertisementId || !recordPlayForm.playDuration}
+                disabled={!recordPlayForm.advertisementId || !recordPlayForm.playDuration || recordingPlay}
                 className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
               >
-                <Play className="w-4 h-4 mr-2" />
-                Record Play
+                {recordingPlay ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Recording...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Record Play
+                  </>
+                )}
               </Button>
             </div>
           </form>
