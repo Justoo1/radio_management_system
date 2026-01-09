@@ -17,6 +17,10 @@ import {
   Activity,
   Loader,
   Banknote,
+  MessageSquare,
+  RefreshCw,
+  Plus,
+  Settings,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
@@ -103,6 +107,30 @@ export default function OrganizationDetailsPage() {
     notes: '',
   })
 
+  // SMS Credits state
+  const [smsCredits, setSmsCredits] = useState<any>(null)
+  const [smsLoading, setSmsLoading] = useState(false)
+  const [showSmsAllocationModal, setShowSmsAllocationModal] = useState(false)
+  const [showAddCreditsModal, setShowAddCreditsModal] = useState(false)
+  const [smsAllocationValue, setSmsAllocationValue] = useState('')
+  const [smsCreditsToAdd, setSmsCreditsToAdd] = useState('')
+  const [smsNotes, setSmsNotes] = useState('')
+
+  const fetchSmsCredits = async () => {
+    try {
+      setSmsLoading(true)
+      const response = await fetch(`/api/admin/organizations/${organizationId}/sms-credits`)
+      const data = await response.json()
+      if (data.success) {
+        setSmsCredits(data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching SMS credits:', error)
+    } finally {
+      setSmsLoading(false)
+    }
+  }
+
   useEffect(() => {
     const fetchOrganization = async () => {
       try {
@@ -120,6 +148,7 @@ export default function OrganizationDetailsPage() {
 
     if (organizationId) {
       fetchOrganization()
+      fetchSmsCredits()
     }
   }, [organizationId])
 
@@ -273,6 +302,115 @@ export default function OrganizationDetailsPage() {
     } catch (error) {
       console.error('Error recording payment:', error)
       alert('Failed to record payment')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // SMS Credits handlers
+  const handleSetMonthlyAllocation = async () => {
+    const allocation = parseInt(smsAllocationValue)
+    if (isNaN(allocation) || allocation < 0) {
+      alert('Please enter a valid allocation value (0 or greater)')
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await fetch(`/api/admin/organizations/${organizationId}/sms-credits`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SET_MONTHLY_ALLOCATION',
+          monthlyAllocation: allocation,
+          notes: smsNotes,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchSmsCredits()
+        setShowSmsAllocationModal(false)
+        setSmsAllocationValue('')
+        setSmsNotes('')
+        alert(`Monthly SMS allocation set to ${allocation}`)
+      } else {
+        alert(data.error || 'Failed to update SMS allocation')
+      }
+    } catch (error) {
+      console.error('Error setting SMS allocation:', error)
+      alert('Failed to update SMS allocation')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleAddCredits = async () => {
+    const credits = parseInt(smsCreditsToAdd)
+    if (isNaN(credits) || credits <= 0) {
+      alert('Please enter a valid number of credits to add')
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await fetch(`/api/admin/organizations/${organizationId}/sms-credits`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ADD_CREDITS',
+          creditsToAdd: credits,
+          notes: smsNotes,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchSmsCredits()
+        setShowAddCreditsModal(false)
+        setSmsCreditsToAdd('')
+        setSmsNotes('')
+        alert(`${credits} SMS credits added successfully`)
+      } else {
+        alert(data.error || 'Failed to add credits')
+      }
+    } catch (error) {
+      console.error('Error adding SMS credits:', error)
+      alert('Failed to add credits')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleResetMonthlyUsage = async () => {
+    if (!confirm('Are you sure you want to reset the monthly SMS usage counter? This will allow the organization to use their full monthly allocation again.')) {
+      return
+    }
+
+    try {
+      setActionLoading(true)
+      const response = await fetch(`/api/admin/organizations/${organizationId}/sms-credits`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'RESET_MONTHLY_USAGE',
+          notes: 'Manual reset by admin',
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        await fetchSmsCredits()
+        alert('Monthly usage counter reset successfully')
+      } else {
+        alert(data.error || 'Failed to reset usage counter')
+      }
+    } catch (error) {
+      console.error('Error resetting usage:', error)
+      alert('Failed to reset usage counter')
     } finally {
       setActionLoading(false)
     }
@@ -473,6 +611,139 @@ export default function OrganizationDetailsPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* SMS Credits Management */}
+      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 rounded-xl p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
+            SMS Credits
+          </h2>
+          <button
+            onClick={() => fetchSmsCredits()}
+            disabled={smsLoading}
+            className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${smsLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+
+        {smsLoading && !smsCredits ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader className="w-6 h-6 text-emerald-400 animate-spin" />
+          </div>
+        ) : smsCredits ? (
+          <div className="space-y-4">
+            {/* Credits Overview */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-xs text-slate-400 mb-1">Monthly Limit</p>
+                <p className="text-xl font-bold text-white">
+                  {smsCredits.credits.monthlyAllocation.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-xs text-slate-400 mb-1">Used This Month</p>
+                <p className="text-xl font-bold text-amber-400">
+                  {smsCredits.credits.monthlyUsed.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-xs text-slate-400 mb-1">Monthly Remaining</p>
+                <p className="text-xl font-bold text-emerald-400">
+                  {smsCredits.credits.monthlyRemaining.toLocaleString()}
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-lg p-3">
+                <p className="text-xs text-slate-400 mb-1">Bonus Balance</p>
+                <p className="text-xl font-bold text-cyan-400">
+                  {smsCredits.credits.balance.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Usage Progress */}
+            {smsCredits.credits.monthlyAllocation > 0 && (
+              <div>
+                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                  <span>Monthly Usage</span>
+                  <span>
+                    {Math.round((smsCredits.credits.monthlyUsed / smsCredits.credits.monthlyAllocation) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      smsCredits.credits.monthlyUsed / smsCredits.credits.monthlyAllocation > 0.9
+                        ? 'bg-red-500'
+                        : smsCredits.credits.monthlyUsed / smsCredits.credits.monthlyAllocation > 0.7
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                    }`}
+                    style={{
+                      width: `${Math.min(100, (smsCredits.credits.monthlyUsed / smsCredits.credits.monthlyAllocation) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Total Stats */}
+            <div className="flex flex-wrap gap-4 text-xs text-slate-400 pt-2 border-t border-slate-700/50">
+              <div>
+                <span className="text-slate-500">Total Available: </span>
+                <span className="text-white font-semibold">{smsCredits.credits.totalAvailable.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Total Used (All Time): </span>
+                <span className="text-white font-semibold">{smsCredits.credits.totalUsed.toLocaleString()}</span>
+              </div>
+              {smsCredits.credits.allocationResetAt && (
+                <div>
+                  <span className="text-slate-500">Resets: </span>
+                  <span className="text-white font-semibold">
+                    {new Date(smsCredits.credits.allocationResetAt).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-2 pt-3">
+              <button
+                onClick={() => {
+                  setSmsAllocationValue(smsCredits.credits.monthlyAllocation.toString())
+                  setShowSmsAllocationModal(true)
+                }}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Settings className="w-4 h-4" />
+                Set Monthly Limit
+              </button>
+              <button
+                onClick={() => setShowAddCreditsModal(true)}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                Add Bonus Credits
+              </button>
+              <button
+                onClick={handleResetMonthlyUsage}
+                disabled={actionLoading}
+                className="flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reset Monthly Usage
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-slate-400 text-sm">No SMS credit information available</p>
+        )}
       </div>
 
       {/* Users in Organization */}
@@ -846,6 +1117,141 @@ export default function OrganizationDetailsPage() {
                 className="w-full sm:flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
               >
                 {actionLoading ? 'Recording...' : 'Record Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Set Monthly Allocation Modal */}
+      {showSmsAllocationModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400 flex-shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Set Monthly SMS Limit</h2>
+            </div>
+
+            <p className="text-sm sm:text-base text-slate-400 mb-4">
+              Set the monthly SMS allocation for {organization.name}.
+              Professional plan default is 5,000 SMS/month.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
+                  Monthly Allocation
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={smsAllocationValue}
+                  onChange={(e) => setSmsAllocationValue(e.target.value)}
+                  placeholder="5000"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Enter 0 to disable monthly allocation
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={smsNotes}
+                  onChange={(e) => setSmsNotes(e.target.value)}
+                  placeholder="Reason for the change..."
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  setShowSmsAllocationModal(false)
+                  setSmsAllocationValue('')
+                  setSmsNotes('')
+                }}
+                className="w-full sm:flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSetMonthlyAllocation}
+                disabled={actionLoading}
+                className="w-full sm:flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
+              >
+                {actionLoading ? 'Saving...' : 'Save Allocation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Bonus Credits Modal */}
+      {showAddCreditsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 flex-shrink-0" />
+              <h2 className="text-lg sm:text-xl font-bold text-white">Add Bonus SMS Credits</h2>
+            </div>
+
+            <p className="text-sm sm:text-base text-slate-400 mb-4">
+              Add extra SMS credits to {organization.name}&apos;s balance.
+              These credits don&apos;t expire and are used after the monthly allocation.
+            </p>
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
+                  Credits to Add
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={smsCreditsToAdd}
+                  onChange={(e) => setSmsCreditsToAdd(e.target.value)}
+                  placeholder="500"
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-white mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={smsNotes}
+                  onChange={(e) => setSmsNotes(e.target.value)}
+                  placeholder="Reason for adding credits..."
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <button
+                onClick={() => {
+                  setShowAddCreditsModal(false)
+                  setSmsCreditsToAdd('')
+                  setSmsNotes('')
+                }}
+                className="w-full sm:flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCredits}
+                disabled={actionLoading || !smsCreditsToAdd}
+                className="w-full sm:flex-1 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 text-sm"
+              >
+                {actionLoading ? 'Adding...' : 'Add Credits'}
               </button>
             </div>
           </div>
