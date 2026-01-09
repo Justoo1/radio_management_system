@@ -215,4 +215,9 @@ function getMonthName(month: number): string {
   return months[month - 1] || 'Unknown'
 }
 
+// Also allow GET for cron services that only support GET
+export async function GET(request: NextRequest) {
+  return POST(request)
+}
+
 export const dynamic = 'force-dynamic'

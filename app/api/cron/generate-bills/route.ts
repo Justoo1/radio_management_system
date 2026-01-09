@@ -109,4 +109,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Also allow GET for cron services that only support GET
+export async function GET(request: NextRequest) {
+  return POST(request)
+}
+
 export const dynamic = 'force-dynamic'
