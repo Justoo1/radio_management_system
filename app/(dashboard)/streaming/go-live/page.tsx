@@ -76,7 +76,7 @@ export default function GoLivePage() {
   const [copied, setCopied] = useState<string | null>(null)
   const [webDjUrl, setWebDjUrl] = useState<string | null>(null)
   const [showCredentials, setShowCredentials] = useState(false)
-  const [showIframe, setShowIframe] = useState(false)
+  const [showIframe, setShowIframe] = useState(true)
 
   useEffect(() => {
     fetchData()
