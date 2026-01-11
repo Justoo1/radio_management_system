@@ -123,6 +123,7 @@ export async function GET() {
         webDjUrl,
         stationShortcode,
         azuracastUrl: azuracastUrl || null,
+        organizationSlug: organization.slug,
       },
       planLimits,
     });

@@ -29,6 +29,9 @@ import {
   ArrowUpRight,
   Loader,
   Share2,
+  Copy,
+  Check,
+  Link as LinkIcon,
 } from 'lucide-react'
 
 interface StreamingStatus {
@@ -82,14 +85,32 @@ export default function StreamingDashboardPage() {
   const [isAudioLoading, setIsAudioLoading] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const getPublicStreamUrl = () => {
+    if (typeof window === 'undefined' || !organizationSlug) return ''
+    return `${window.location.origin}/stream/${organizationSlug}`
+  }
+
+  const handleCopyUrl = async () => {
+    const url = getPublicStreamUrl()
+    if (!url) return
+
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
 
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, configRes, orgRes] = await Promise.all([
+      const [statusRes, configRes] = await Promise.all([
         fetch('/api/streaming/status'),
         fetch('/api/streaming/config'),
-        fetch('/api/organization'),
       ])
 
       if (statusRes.ok) {
@@ -100,14 +121,13 @@ export default function StreamingDashboardPage() {
       if (configRes.ok) {
         const configData = await configRes.json()
         setConfig(configData.data)
+        // Get organization slug from config response
+        if (configData.data?.organizationSlug) {
+          setOrganizationSlug(configData.data.organizationSlug)
+        }
       } else if (configRes.status === 404) {
         // No streaming config yet
         setConfig(null)
-      }
-
-      if (orgRes.ok) {
-        const orgData = await orgRes.json()
-        setOrganizationSlug(orgData.data?.slug || null)
       }
     } catch (err) {
       console.error('Failed to fetch streaming data:', err)
@@ -379,6 +399,58 @@ export default function StreamingDashboardPage() {
             </div>
           ))}
         </div>
+
+        {/* Public Stream Link */}
+        {organizationSlug && (
+          <div className="group relative mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-600/20 to-purple-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-pink-500/50 transition-all duration-300">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gradient-to-br from-pink-500/30 to-purple-600/30 p-3 rounded-xl border border-pink-400/30 backdrop-blur">
+                    <LinkIcon className="w-6 h-6 text-pink-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Public Stream Link</h3>
+                    <p className="text-sm text-slate-400">Share this link with your listeners</p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1 md:max-w-xl">
+                  <div className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 font-mono text-sm text-slate-300 truncate">
+                    {getPublicStreamUrl()}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCopyUrl}
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-pink-600/40 to-purple-600/40 hover:from-pink-600/60 hover:to-purple-600/60 text-pink-200 rounded-xl border border-pink-500/30 hover:border-pink-400/50 transition-all duration-300 font-semibold whitespace-nowrap"
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          Copy Link
+                        </>
+                      )}
+                    </button>
+                    <Link
+                      href={`/stream/${organizationSlug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-slate-300 transition-all duration-300"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
