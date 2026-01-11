@@ -1,0 +1,19 @@
+# Environment files (contain API keys)
+.env
+
+# Docker volumes (managed by Docker)
+# Don't commit any local data
+
+# Backup files
+*.zip
+*.tar.gz
+backups/
+
+# Test media files
+test-media/
+*.mp3
+*.ogg
+*.flac
+
+# Logs
+*.log

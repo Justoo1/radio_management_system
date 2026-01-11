@@ -25,6 +25,7 @@ import {
   Lock,
   ImageIcon,
   Activity,
+  Wifi,
 } from 'lucide-react'
 import { getEnabledFeatures, getOrganizationName } from '@/app/actions/features'
 import { Feature, isFeatureEnabled } from '@/lib/features'
@@ -40,6 +41,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/on-air', label: 'Live On-Air', icon: Podcast, highlight: true, feature: Feature.ON_AIR },
+  { href: '/streaming', label: 'Streaming', icon: Wifi, highlight: true, feature: Feature.STREAMING },
   { href: '/clients', label: 'Clients', icon: Users, feature: Feature.CLIENTS },
   { href: '/programs', label: 'Programs', icon: Radio, feature: Feature.PROGRAMS },
   { href: '/teams', label: 'Teams', icon: Users2, highlight: true, feature: Feature.TEAMS },

@@ -21,6 +21,7 @@ export enum Feature {
   EXPENSES = 'expenses',
   ADVANCED_ANALYTICS = 'advanced_analytics',
   LISTENER_TRACKING = 'listener_tracking',
+  STREAMING = 'streaming',
 
   // Report Access Features (Premium)
   REPORT_REVENUE = 'report_revenue',
@@ -200,6 +201,14 @@ export const FEATURES: Record<Feature, FeatureDefinition> = {
     icon: 'Users',
     premium: true,
     route: '/listeners',
+  },
+  [Feature.STREAMING]: {
+    key: Feature.STREAMING,
+    name: 'Internet Streaming',
+    description: 'Stream your radio station online with AzuraCast',
+    icon: 'Wifi',
+    premium: true,
+    route: '/streaming',
   },
 }
 

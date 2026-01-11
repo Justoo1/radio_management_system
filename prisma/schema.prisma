@@ -90,20 +90,23 @@ model Organization {
   songPlayHistory  SongPlayHistory[]
 
   // Analytics
-  listenerSessions    ListenerSession[]
-  engagementSessions  EngagementSession[]
-  listenerMetrics     ListenerMetrics[]
-  programRatings      ProgramRating[]
+  listenerSessions   ListenerSession[]
+  engagementSessions EngagementSession[]
+  listenerMetrics    ListenerMetrics[]
+  programRatings     ProgramRating[]
 
   // WhatsApp
-  whatsappAccount  WhatsAppAccount?
+  whatsappAccount WhatsAppAccount?
 
   // Listener Chat
   listenerChatMessages ListenerChatMessage[]
-  whatsappMessages WhatsAppMessage[]
+  whatsappMessages     WhatsAppMessage[]
 
   // Push Notifications
   pushSubscriptions PushSubscription[]
+
+  // Streaming (Online Broadcasting)
+  streamingConfig StreamingConfig?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -195,6 +198,15 @@ model SubscriptionPlan {
   // Features
   features String @db.Text // JSON array of features
 
+  // Streaming Features (Online Broadcasting)
+  streamingEnabled             Boolean @default(false)
+  maxStreamListeners           Int     @default(0)
+  streamStorageGB              Int     @default(0)
+  maxStreamBitrate             Int     @default(128) // kbps
+  maxStreamPlaylists           Int     @default(5)
+  streamAnalyticsRetentionDays Int     @default(30)
+  customStreamBranding         Boolean @default(false)
+
   // Display
   isPopular Boolean @default(false)
   sortOrder Int     @default(0)
@@ -262,7 +274,7 @@ model SubscriptionPayment {
 
 // Monthly Bills for Organizations
 model Bill {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation("OrganizationBills", fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -276,17 +288,17 @@ model Bill {
   description String? @db.Text
 
   // Status
-  status    BillStatus @default(PENDING)
-  dueDate   DateTime
-  paidAt    DateTime?
+  status  BillStatus @default(PENDING)
+  dueDate DateTime
+  paidAt  DateTime?
 
   // Payment Reference
   paymentMethod PaymentMethodType?
   paymentRef    String? // Reference number from customer
-  notes         String? @db.Text
+  notes         String?            @db.Text
 
   // Reminders
-  reminderSentAt DateTime?
+  reminderSentAt      DateTime?
   overdueNoticeSentAt DateTime?
 
   createdAt DateTime @default(now())
@@ -373,9 +385,9 @@ model User {
   activityLogs   ActivityLog[]
 
   // Team Relations
-  teamsLed       Team[]        @relation("TeamLead")
-  teamsCreated   Team[]        @relation("CreatedTeam")
-  teamMembers    TeamMember[]  @relation("TeamMember")
+  teamsLed     Team[]       @relation("TeamLead")
+  teamsCreated Team[]       @relation("CreatedTeam")
+  teamMembers  TeamMember[] @relation("TeamMember")
 
   // Live On-Air
   onAirSessions OnAirNow[]        @relation("OnAirPresenter")
@@ -393,6 +405,9 @@ model User {
 
   // Push Notifications
   pushSubscriptions PushSubscription[]
+
+  // Streaming DJ Accounts
+  streamDJAccounts StreamDJAccount[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -429,14 +444,14 @@ model PushSubscription {
   auth     String // Auth secret
 
   // Device info
-  userAgent String? @db.Text
+  userAgent  String? @db.Text
   deviceName String?
 
   // Notification preferences
-  notifyRequests  Boolean @default(true)
-  notifyChat      Boolean @default(true)
-  notifyPayments  Boolean @default(true)
-  notifySystem    Boolean @default(true)
+  notifyRequests Boolean @default(true)
+  notifyChat     Boolean @default(true)
+  notifyPayments Boolean @default(true)
+  notifySystem   Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -533,34 +548,34 @@ model Permission {
 // ============================================
 
 model Team {
-  id             String  @id @default(cuid())
+  id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation("OrganizationTeams", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name           String
-  description    String? @db.Text
+  name        String
+  description String? @db.Text
 
   // Team type: PROGRAM_TEAM, ENGINEERING, SALES, OPERATIONS, etc.
-  teamType       TeamType
+  teamType TeamType
 
   // Team lead (usually a user with TEAM_LEAD role)
-  teamLeadId     String?
-  teamLead       User?   @relation("TeamLead", fields: [teamLeadId], references: [id], onDelete: SetNull)
+  teamLeadId String?
+  teamLead   User?   @relation("TeamLead", fields: [teamLeadId], references: [id], onDelete: SetNull)
 
   // Who created this team
-  createdById    String
-  createdBy      User    @relation("CreatedTeam", fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation("CreatedTeam", fields: [createdById], references: [id])
 
   // Status
-  status         TeamStatus @default(ACTIVE)
-  isActive       Boolean    @default(true)
+  status   TeamStatus @default(ACTIVE)
+  isActive Boolean    @default(true)
 
   // Relations
-  members        TeamMember[]
-  programs       Program[] @relation("TeamPrograms")
+  members  TeamMember[]
+  programs Program[]    @relation("TeamPrograms")
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([name, organizationId])
   @@index([organizationId])
@@ -588,19 +603,19 @@ enum TeamStatus {
 }
 
 model TeamMember {
-  id       String @id @default(cuid())
-  teamId   String
-  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
-  userId   String
-  user     User   @relation("TeamMember", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("TeamMember", fields: [userId], references: [id], onDelete: Cascade)
 
   // Role within team (different from organization role)
-  role     TeamMemberRole @default(MEMBER)
+  role TeamMemberRole @default(MEMBER)
 
   // Responsibility
-  title    String? // e.g., "Producer", "Sound Engineer", "Host"
-  bio      String? @db.Text
+  title String? // e.g., "Producer", "Sound Engineer", "Host"
+  bio   String? @db.Text
 
   // When joined
   joinedAt DateTime @default(now())
@@ -741,8 +756,8 @@ model Program {
   coHosts String? // JSON array of co-host names
 
   // Team Management
-  teamId  String?
-  team    Team?   @relation("TeamPrograms", fields: [teamId], references: [id], onDelete: SetNull)
+  teamId String?
+  team   Team?   @relation("TeamPrograms", fields: [teamId], references: [id], onDelete: SetNull)
 
   // Media
   thumbnailUrl  String?
@@ -753,20 +768,23 @@ model Program {
   episodes  ProgramEpisode[]
 
   // Live On-Air
-  onAirSessions    OnAirNow[]
-  queueItems       OnAirQueue[]
-  listenerRequests ListenerRequest[]
-  showNotes           ShowNote[]
-  songPlayHistory     SongPlayHistory[]
-  listenerSessions    ListenerSession[]
-  engagementSessions  EngagementSession[]
-  listenerMetrics     ListenerMetrics[]
-  ratings             ProgramRating[]
+  onAirSessions      OnAirNow[]
+  queueItems         OnAirQueue[]
+  listenerRequests   ListenerRequest[]
+  showNotes          ShowNote[]
+  songPlayHistory    SongPlayHistory[]
+  listenerSessions   ListenerSession[]
+  engagementSessions EngagementSession[]
+  listenerMetrics    ListenerMetrics[]
+  ratings            ProgramRating[]
 
   // Advertising
-  adPackages     AdPackage[]    @relation("PackageProgram")
-  adPlayHistory  AdPlayHistory[] @relation("AdPlayProgram")
-  targetCampaigns AdCampaign[]   @relation("CampaignTargetProgram")
+  adPackages      AdPackage[]     @relation("PackageProgram")
+  adPlayHistory   AdPlayHistory[] @relation("AdPlayProgram")
+  targetCampaigns AdCampaign[]    @relation("CampaignTargetProgram")
+
+  // Streaming playlists
+  streamPlaylists StreamPlaylist[] @relation("StreamPlaylistProgram")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1024,9 +1042,9 @@ model SMSContact {
   tags     String? @db.Text // JSON array of tags
 
   // Consent & Status
-  status    ContactStatus @default(ACTIVE)
+  status     ContactStatus @default(ACTIVE)
   optedOutAt DateTime?
-  source    String? // "IMPORT", "MANUAL", "CLIENT_SYNC"
+  source     String? // "IMPORT", "MANUAL", "CLIENT_SYNC"
 
   // Metadata
   customFields String? @db.Text // JSON for custom data
@@ -1086,6 +1104,9 @@ model MediaFile {
 
   // Relations
   advertisements Advertisement[]
+
+  // Streaming playlist songs
+  streamPlaylistSongs StreamPlaylistSong[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1358,7 +1379,7 @@ model AdPlayHistory {
 
   // Presenter who played the ad
   presenterId String?
-  presenter   User? @relation("AdPlayPresenter", fields: [presenterId], references: [id])
+  presenter   User?   @relation("AdPlayPresenter", fields: [presenterId], references: [id])
 
   // Daypart context
   daypartName String?
@@ -1889,6 +1910,9 @@ model Song {
   playHistory   SongPlayHistory[]
   playlistSongs PlaylistSong[]
 
+  // Streaming now playing history
+  streamNowPlayingHistory StreamNowPlayingHistory[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2237,25 +2261,25 @@ model EngagementSession {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Session info
-  name        String? // Optional name for the session (e.g., "Morning Show - Jan 6")
-  source      EngagementSource // Primary source being tracked
-  status      EngagementSessionStatus @default(ACTIVE)
+  name   String? // Optional name for the session (e.g., "Morning Show - Jan 6")
+  source EngagementSource // Primary source being tracked
+  status EngagementSessionStatus @default(ACTIVE)
 
   // Engagement counts - staff can increment these during the session
-  phoneCallCount    Int @default(0)
-  smsCount          Int @default(0)
-  whatsappCount     Int @default(0)
-  socialMediaCount  Int @default(0)
-  websiteCount      Int @default(0)
-  mobileAppCount    Int @default(0)
-  otherCount        Int @default(0)
+  phoneCallCount   Int @default(0)
+  smsCount         Int @default(0)
+  whatsappCount    Int @default(0)
+  socialMediaCount Int @default(0)
+  websiteCount     Int @default(0)
+  mobileAppCount   Int @default(0)
+  otherCount       Int @default(0)
 
   // Additional tracking
-  uniqueCallers     Int @default(0) // Estimated unique callers
-  contestEntries    Int @default(0)
-  songRequests      Int @default(0)
-  dedications       Int @default(0)
-  shoutouts         Int @default(0)
+  uniqueCallers  Int @default(0) // Estimated unique callers
+  contestEntries Int @default(0)
+  songRequests   Int @default(0)
+  dedications    Int @default(0)
+  shoutouts      Int @default(0)
 
   // Listener info (optional - for tracking notable callers)
   listenerName  String?
@@ -2267,11 +2291,11 @@ model EngagementSession {
 
   // Notes and metadata
   notes    String? @db.Text
-  metadata Json?   // Flexible storage for additional data
+  metadata Json? // Flexible storage for additional data
 
   // Created by staff member
   createdById String?
-  createdBy   User?  @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation(fields: [createdById], references: [id])
 
   // Timing
   startedAt DateTime  @default(now())
@@ -2349,8 +2373,8 @@ model ProgramRating {
   program   Program @relation(fields: [programId], references: [id], onDelete: Cascade)
 
   // Rating details
-  rating  Int // 1-5 stars
-  review  String? @db.Text
+  rating Int // 1-5 stars
+  review String? @db.Text
 
   // Listener info (optional - for authenticated users)
   userId String?
@@ -2492,13 +2516,13 @@ model ListenerChatMessage {
   message String @db.Text
 
   // Moderation
-  status    ChatMessageStatus @default(VISIBLE)
-  isPinned  Boolean           @default(false)
-  isFromStaff Boolean         @default(false)
+  status      ChatMessageStatus @default(VISIBLE)
+  isPinned    Boolean           @default(false)
+  isFromStaff Boolean           @default(false)
 
   // Staff who moderated/replied
   moderatedById String?
-  moderatedBy   User?    @relation("ChatMessageModerator", fields: [moderatedById], references: [id])
+  moderatedBy   User?     @relation("ChatMessageModerator", fields: [moderatedById], references: [id])
   moderatedAt   DateTime?
 
   // Reply functionality
@@ -2521,4 +2545,330 @@ enum ChatMessageStatus {
   HIDDEN
   DELETED
   FLAGGED
+}
+
+// ============================================
+// STREAMING (Online Broadcasting - AzuraCast Integration)
+// ============================================
+
+// Per-organization streaming configuration
+model StreamingConfig {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Status
+  isEnabled Boolean      @default(false)
+  status    StreamStatus @default(INACTIVE)
+
+  // AzuraCast Integration
+  azuracastStationId Int?
+  azuracastApiKey    String? @db.Text // Encrypted, station-specific API key
+
+  // Stream Details
+  streamName        String?
+  streamDescription String? @db.Text
+  streamGenre       String?
+  streamUrl         String? // Public stream URL
+  streamMountPoint  String? // e.g., /radio.mp3
+
+  // Limits (from plan, cached for quick access)
+  maxListeners   Int @default(100)
+  maxBitrate     Int @default(128) // kbps
+  storageQuotaMB Int @default(10240) // 10GB default
+  storageUsedMB  Int @default(0)
+
+  // Branding
+  logoUrl           String?
+  playerAccentColor String? @default("#3B82F6")
+
+  // Metadata
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSyncAt DateTime?
+
+  // Relations
+  mountPoints       StreamMountPoint[]
+  djAccounts        StreamDJAccount[]
+  playlists         StreamPlaylist[]
+  analytics         StreamAnalytics[]
+  listenerSessions  StreamListenerSession[]
+  nowPlayingHistory StreamNowPlayingHistory[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@map("streaming_configs")
+}
+
+enum StreamStatus {
+  INACTIVE // Not set up
+  CONFIGURING // Setup in progress
+  ACTIVE // Live and running
+  OFFLINE // Configured but not streaming
+  ERROR // Configuration error
+  SUSPENDED // Suspended due to plan/payment
+}
+
+// Stream mount points (quality options)
+model StreamMountPoint {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  azuracastMountId Int? // ID in AzuraCast for syncing
+
+  name       String // e.g., "High Quality", "Low Bandwidth"
+  mountPoint String // e.g., /radio-hq.mp3
+  url        String // Full URL
+  format     StreamFormat @default(MP3)
+  bitrate    Int // kbps
+  isDefault  Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([streamingConfigId, mountPoint])
+  @@index([streamingConfigId])
+  @@map("stream_mount_points")
+}
+
+enum StreamFormat {
+  MP3
+  AAC
+  OGG
+  OPUS
+  FLAC
+}
+
+// DJ / Source accounts for live broadcasting
+model StreamDJAccount {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  userId String? // Link to RMS user (optional)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  displayName String
+  username    String
+  password    String // Hashed
+
+  isActive     Boolean @default(true)
+  canBroadcast Boolean @default(true)
+
+  // Connection details (provided by AzuraCast)
+  sourceHost       String?
+  sourcePort       Int?
+  sourceMountPoint String?
+
+  // AzuraCast reference
+  azuracastStreamerId Int?
+
+  lastConnectedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([streamingConfigId, username])
+  @@index([streamingConfigId])
+  @@index([userId])
+  @@map("stream_dj_accounts")
+}
+
+// Streaming playlists (AutoDJ)
+model StreamPlaylist {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  azuracastPlaylistId Int? // ID in AzuraCast
+
+  name      String
+  type      StreamPlaylistType @default(DEFAULT)
+  isEnabled Boolean            @default(true)
+
+  // Scheduling
+  playOrder PlaylistOrder @default(SHUFFLE)
+  weight    Int           @default(3) // 1-25, higher = more frequent
+
+  // Time-based scheduling (optional)
+  scheduledStartTime String? // HH:MM format
+  scheduledEndTime   String? // HH:MM format
+  scheduledDays      String? // JSON array: [0,1,2,3,4,5,6] (Sun-Sat)
+
+  // Link to RMS Program (optional)
+  programId String?
+  program   Program? @relation("StreamPlaylistProgram", fields: [programId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  songs StreamPlaylistSong[]
+
+  @@index([streamingConfigId])
+  @@index([programId])
+  @@map("stream_playlists")
+}
+
+enum StreamPlaylistType {
+  DEFAULT // General rotation
+  SCHEDULED // Time-based
+  ONCE_PER_HOUR // Play once per hour
+  ONCE_PER_DAY // Play once per day
+  JINGLES // Station IDs, jingles
+  REQUESTS // Listener requests
+}
+
+enum PlaylistOrder {
+  SHUFFLE // Random
+  SEQUENTIAL // In order
+  WEIGHTED // Based on song weight
+}
+
+model StreamPlaylistSong {
+  id         String         @id @default(cuid())
+  playlistId String
+  playlist   StreamPlaylist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  // Link to RMS MediaFile or AzuraCast media
+  mediaFileId      String?
+  mediaFile        MediaFile? @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+  azuracastMediaId Int?
+
+  title    String
+  artist   String?
+  duration Int? // seconds
+  weight   Int     @default(1)
+
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([playlistId])
+  @@index([mediaFileId])
+  @@map("stream_playlist_songs")
+}
+
+// Streaming analytics (aggregated metrics)
+model StreamAnalytics {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  // Time period
+  timestamp  DateTime
+  periodType AnalyticsPeriod @default(HOURLY)
+
+  // Listener metrics
+  listenersMin    Int   @default(0)
+  listenersMax    Int   @default(0)
+  listenersAvg    Float @default(0)
+  uniqueListeners Int   @default(0)
+
+  // Engagement metrics
+  totalListeningMinutes Int   @default(0)
+  avgListeningDuration  Float @default(0) // minutes
+
+  // Geographic data (JSON)
+  listenersByCountry Json? // { "GH": 150, "US": 25, ... }
+  listenersByCity    Json? // { "Accra": 100, "Kumasi": 50, ... }
+
+  // Device/Platform data (JSON)
+  listenersByPlatform Json? // { "web": 100, "mobile": 50, "app": 25 }
+  listenersByPlayer   Json? // { "browser": 80, "vlc": 20, ... }
+
+  // Content played
+  songsPlayed Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([streamingConfigId, timestamp, periodType])
+  @@index([streamingConfigId])
+  @@index([timestamp])
+  @@index([periodType])
+  @@map("stream_analytics")
+}
+
+enum AnalyticsPeriod {
+  REALTIME // Current snapshot
+  HOURLY // Aggregated by hour
+  DAILY // Aggregated by day
+  WEEKLY // Aggregated by week
+  MONTHLY // Aggregated by month
+}
+
+// Online listener sessions
+model StreamListenerSession {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  // Session info
+  sessionId String @unique // From AzuraCast or generated
+
+  // Listener identification
+  ipAddress String?
+  userAgent String?
+
+  // Geographic info
+  country     String?
+  countryCode String?
+  city        String?
+  region      String?
+
+  // Device info
+  deviceType String? // desktop, mobile, tablet
+  browser    String?
+  os         String?
+  player     String? // web, vlc, winamp, etc.
+
+  // Mount point used
+  mountPoint String?
+
+  // Timing
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+
+  // Quality
+  bytesTransferred BigInt?
+
+  @@index([streamingConfigId])
+  @@index([startedAt])
+  @@index([countryCode])
+  @@map("stream_listener_sessions")
+}
+
+// Now playing history for streaming
+model StreamNowPlayingHistory {
+  id                String          @id @default(cuid())
+  streamingConfigId String
+  streamingConfig   StreamingConfig @relation(fields: [streamingConfigId], references: [id], onDelete: Cascade)
+
+  // Song info
+  title  String
+  artist String?
+  album  String?
+
+  // Artwork
+  artworkUrl String?
+
+  // Timing
+  playedAt DateTime @default(now())
+  duration Int? // seconds
+
+  // Source
+  isLive       Boolean @default(false)
+  djName       String?
+  playlistName String?
+
+  // Link to RMS Song (if matched)
+  songId String?
+  song   Song?   @relation(fields: [songId], references: [id], onDelete: SetNull)
+
+  // Listeners at time of play
+  listenersAtPlay Int?
+
+  @@index([streamingConfigId])
+  @@index([playedAt])
+  @@index([songId])
+  @@map("stream_now_playing_history")
 }

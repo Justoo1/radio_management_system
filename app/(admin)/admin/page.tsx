@@ -17,6 +17,7 @@ import {
   Calendar,
   DollarSign,
   Loader,
+  Wifi,
 } from 'lucide-react'
 import { getAllOrganizations, getAdminDashboardStats } from '@/app/actions/admin'
 
@@ -376,7 +377,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
           <h3 className="font-semibold text-blue-300 mb-2">Upcoming Payments</h3>
           <p className="text-sm text-blue-200 mb-2">
@@ -396,6 +397,19 @@ export default function AdminDashboard() {
             View Details →
           </a>
         </div>
+
+        <a href="/admin/streaming" className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 hover:border-cyan-400/50 transition-all group">
+          <div className="flex items-center gap-2 mb-2">
+            <Wifi className="w-5 h-5 text-cyan-400" />
+            <h3 className="font-semibold text-cyan-300">Streaming Management</h3>
+          </div>
+          <p className="text-sm text-cyan-200 mb-2">
+            Manage AzuraCast server, stations, and organization streaming configs
+          </p>
+          <span className="text-cyan-300 group-hover:text-cyan-200 text-sm font-semibold">
+            Manage Streaming →
+          </span>
+        </a>
       </div>
     </div>
   )

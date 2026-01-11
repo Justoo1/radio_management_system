@@ -16,6 +16,7 @@ import {
   Settings,
   LucideIcon,
   Activity,
+  Wifi,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -98,6 +99,33 @@ export const dashboardNav: NavItem[] = [
       {
         href: '/media/upload',
         label: 'Upload',
+      },
+    ],
+  },
+  {
+    href: '/streaming',
+    label: 'Streaming',
+    icon: Wifi,
+    children: [
+      {
+        href: '/streaming',
+        label: 'Dashboard',
+      },
+      {
+        href: '/streaming/playlists',
+        label: 'Playlists',
+      },
+      {
+        href: '/streaming/mount-points',
+        label: 'Mount Points',
+      },
+      {
+        href: '/streaming/dj-accounts',
+        label: 'DJ Accounts',
+      },
+      {
+        href: '/streaming/settings',
+        label: 'Settings',
       },
     ],
   },
