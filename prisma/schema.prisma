@@ -564,7 +564,7 @@ model Team {
 
   // Who created this team
   createdById String
-  createdBy   User   @relation("CreatedTeam", fields: [createdById], references: [id])
+  createdBy   User   @relation("CreatedTeam", fields: [createdById], references: [id], onDelete: Cascade)
 
   // Status
   status   TeamStatus @default(ACTIVE)
@@ -910,7 +910,7 @@ model SMSCampaign {
 
   // Audit
   createdById String
-  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdBy   User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   sentAt      DateTime?
@@ -1095,7 +1095,7 @@ model MediaFile {
 
   // Metadata
   uploadedById String
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
   uploadedAt   DateTime @default(now())
 
   // Usage tracking
@@ -1632,7 +1632,7 @@ model ActivityLog {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   userId String
-  user   User   @relation(fields: [userId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   action     String // e.g., "CREATE", "UPDATE", "DELETE"
   resource   String // e.g., "Client", "Program", "SMSCampaign"
@@ -2295,7 +2295,7 @@ model EngagementSession {
 
   // Created by staff member
   createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdBy   User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   // Timing
   startedAt DateTime  @default(now())
