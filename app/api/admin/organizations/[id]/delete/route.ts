@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import {
   deleteOrganizationWithData,
   getOrganizationDataSummary,
@@ -13,10 +12,10 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     // Only super admins can access this endpoint
     // You should have a way to identify admin users
@@ -33,7 +32,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const organizationId = params.id;
+    const { id: organizationId } = await params;
 
     // Get organization details
     const organization = await prisma.organization.findUnique({
@@ -79,10 +78,10 @@ export async function GET(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     // Only super admins can access this endpoint
     if (!session?.user) {
@@ -96,7 +95,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const organizationId = params.id;
+    const { id: organizationId } = await params;
 
     // Get confirmation from request body
     const body = await request.json();
