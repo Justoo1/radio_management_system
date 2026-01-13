@@ -134,6 +134,14 @@ export interface AzuraCastListener {
   };
 }
 
+export interface StreamerScheduleItem {
+  start_time: string;   // "14:00" (HH:MM format)
+  end_time: string;     // "15:00" (HH:MM format)
+  start_date: string;   // "2024-01-15" (YYYY-MM-DD format)
+  end_date: string;     // "2024-01-15" (YYYY-MM-DD format)
+  days: number[];       // 0=Sunday, 1=Monday, etc.
+}
+
 export interface AzuraCastStreamer {
   id: number;
   streamer_username: string;
@@ -142,7 +150,7 @@ export interface AzuraCastStreamer {
   comments: string;
   is_active: boolean;
   enforce_schedule: boolean;
-  schedule_items: unknown[];
+  schedule_items: StreamerScheduleItem[];
   links: {
     self: string;
   };
@@ -274,15 +282,28 @@ export interface CreateStreamerOptions {
   displayName: string;
   isActive?: boolean;
   comments?: string;
+  enforceSchedule?: boolean;
+  scheduleItems?: StreamerScheduleItem[];
+}
+
+export interface PlaylistScheduleItem {
+  start_time: string;       // HH:MM format (required)
+  end_time: string;         // HH:MM format (required)
+  start_date?: string;      // YYYY-MM-DD format (optional, for date range)
+  end_date?: string;        // YYYY-MM-DD format (optional, for date range)
+  days?: number[];          // Day numbers: 0=Sunday, 1=Monday, ..., 6=Saturday
+  loop_once?: boolean;      // Only loop through playlist once per schedule
 }
 
 export interface CreatePlaylistOptions {
   name: string;
-  type?: 'default' | 'once_per_x_songs' | 'once_per_x_minutes' | 'once_per_hour' | 'advanced';
+  type?: 'default' | 'once_per_x_songs' | 'once_per_x_minutes' | 'once_per_hour' | 'once_per_day' | 'advanced';
   source?: 'songs' | 'remote_url' | 'remote_playlist';
   order?: 'shuffle' | 'random' | 'sequential';
   isEnabled?: boolean;
   weight?: number;
+  // Schedule items for 'once_per_day' (scheduled) playlists
+  scheduleItems?: PlaylistScheduleItem[];
 }
 
 // ============================================
@@ -553,26 +574,35 @@ class AzuraCastService {
 
   /**
    * Create a new streamer (DJ account)
+   * Supports schedule enforcement for time-limited access (e.g., airtime bookings)
    */
   async createStreamer(
     stationId: number,
     options: CreateStreamerOptions
   ): Promise<AzuraCastStreamer> {
+    const payload: Record<string, unknown> = {
+      streamer_username: options.username,
+      streamer_password: options.password,
+      display_name: options.displayName,
+      is_active: options.isActive ?? true,
+      comments: options.comments || '',
+      enforce_schedule: options.enforceSchedule ?? false,
+    };
+
+    // Add schedule items if schedule enforcement is enabled
+    if (options.enforceSchedule && options.scheduleItems) {
+      payload.schedule_items = options.scheduleItems;
+    }
+
     return this.request<AzuraCastStreamer>(`/api/station/${stationId}/streamers`, {
       method: 'POST',
-      body: JSON.stringify({
-        streamer_username: options.username,
-        streamer_password: options.password,
-        display_name: options.displayName,
-        is_active: options.isActive ?? true,
-        comments: options.comments || '',
-        enforce_schedule: false,
-      }),
+      body: JSON.stringify(payload),
     });
   }
 
   /**
    * Update a streamer
+   * Supports updating schedule enforcement settings
    */
   async updateStreamer(
     stationId: number,
@@ -585,6 +615,8 @@ class AzuraCastService {
     if (data.displayName) body.display_name = data.displayName;
     if (data.isActive !== undefined) body.is_active = data.isActive;
     if (data.comments) body.comments = data.comments;
+    if (data.enforceSchedule !== undefined) body.enforce_schedule = data.enforceSchedule;
+    if (data.scheduleItems) body.schedule_items = data.scheduleItems;
 
     return this.request<AzuraCastStreamer>(
       `/api/station/${stationId}/streamer/${streamerId}`,
@@ -593,6 +625,36 @@ class AzuraCastService {
         body: JSON.stringify(body),
       }
     );
+  }
+
+  /**
+   * Update streamer schedule
+   * Convenience method for updating only the schedule of a streamer
+   */
+  async updateStreamerSchedule(
+    stationId: number,
+    streamerId: number,
+    scheduleItems: StreamerScheduleItem[],
+    enforceSchedule: boolean = true
+  ): Promise<AzuraCastStreamer> {
+    return this.updateStreamer(stationId, streamerId, {
+      enforceSchedule,
+      scheduleItems,
+    });
+  }
+
+  /**
+   * Disable streamer schedule enforcement
+   * Useful for extending or removing time restrictions
+   */
+  async disableStreamerSchedule(
+    stationId: number,
+    streamerId: number
+  ): Promise<AzuraCastStreamer> {
+    return this.updateStreamer(stationId, streamerId, {
+      enforceSchedule: false,
+      scheduleItems: [],
+    });
   }
 
   /**
@@ -631,19 +693,43 @@ class AzuraCastService {
     stationId: number,
     options: CreatePlaylistOptions
   ): Promise<AzuraCastPlaylist> {
+    // Build the payload
+    const payload: Record<string, unknown> = {
+      name: options.name,
+      type: options.type || 'default',
+      source: options.source || 'songs',
+      order: options.order || 'shuffle',
+      is_enabled: options.isEnabled ?? true,
+      weight: options.weight || 3,
+      include_in_requests: true,
+      avoid_duplicates: true,
+    };
+
+    // Add schedule items for scheduled playlists
+    if (options.scheduleItems && options.scheduleItems.length > 0) {
+      payload.schedule_items = options.scheduleItems.map((item) => ({
+        start_time: this.formatTimeForAzuraCast(item.start_time),
+        end_time: this.formatTimeForAzuraCast(item.end_time),
+        start_date: item.start_date || null,
+        end_date: item.end_date || null,
+        days: item.days || [],
+        loop_once: item.loop_once || false,
+      }));
+    }
+
     return this.request<AzuraCastPlaylist>(`/api/station/${stationId}/playlists`, {
       method: 'POST',
-      body: JSON.stringify({
-        name: options.name,
-        type: options.type || 'default',
-        source: options.source || 'songs',
-        order: options.order || 'shuffle',
-        is_enabled: options.isEnabled ?? true,
-        weight: options.weight || 3,
-        include_in_requests: true,
-        avoid_duplicates: true,
-      }),
+      body: JSON.stringify(payload),
     });
+  }
+
+  /**
+   * Format time string to seconds since midnight for AzuraCast
+   * AzuraCast expects time as seconds since midnight (0-86400)
+   */
+  private formatTimeForAzuraCast(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return (hours * 3600) + (minutes * 60);
   }
 
   /**
@@ -654,11 +740,33 @@ class AzuraCastService {
     playlistId: number,
     data: Partial<CreatePlaylistOptions>
   ): Promise<AzuraCastPlaylist> {
+    // Build the payload with proper formatting
+    const payload: Record<string, unknown> = { ...data };
+
+    // Format schedule items if provided
+    if (data.scheduleItems && data.scheduleItems.length > 0) {
+      payload.schedule_items = data.scheduleItems.map((item) => ({
+        start_time: this.formatTimeForAzuraCast(item.start_time),
+        end_time: this.formatTimeForAzuraCast(item.end_time),
+        start_date: item.start_date || null,
+        end_date: item.end_date || null,
+        days: item.days || [],
+        loop_once: item.loop_once || false,
+      }));
+      delete payload.scheduleItems;
+    }
+
+    // Convert camelCase to snake_case for AzuraCast API
+    if ('isEnabled' in payload) {
+      payload.is_enabled = payload.isEnabled;
+      delete payload.isEnabled;
+    }
+
     return this.request<AzuraCastPlaylist>(
       `/api/station/${stationId}/playlist/${playlistId}`,
       {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       }
     );
   }

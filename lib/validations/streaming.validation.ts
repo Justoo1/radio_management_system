@@ -82,6 +82,32 @@ export const djAccountPasswordSchema = z.object({
 // Playlist Schemas
 // ============================================
 
+// Schema for individual schedule items (matching AzuraCast format)
+export const playlistScheduleItemSchema = z.object({
+  startTime: z
+    .string()
+    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (use HH:MM)"),
+  endTime: z
+    .string()
+    .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (use HH:MM)"),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (use YYYY-MM-DD)")
+    .optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (use YYYY-MM-DD)")
+    .optional(),
+  days: z
+    .array(z.number().min(0).max(6))
+    .optional()
+    .describe("Day numbers: 0=Sunday, 1=Monday, ..., 6=Saturday"),
+  loopOnce: z
+    .boolean()
+    .default(false)
+    .describe("Only loop through playlist once per schedule"),
+});
+
 export const playlistCreateSchema = z.object({
   name: z
     .string()
@@ -92,9 +118,15 @@ export const playlistCreateSchema = z.object({
   isEnabled: z.boolean().default(true),
   playPerHour: z.number().min(0).max(60).optional(),
   playPerDay: z.number().min(0).max(24).optional(),
+  // Legacy schedule fields (for backward compatibility)
   scheduleStart: z.string().optional(),
   scheduleEnd: z.string().optional(),
   scheduleDays: z.array(z.number().min(0).max(6)).optional(),
+  // New schedule items array (for full AzuraCast schedule support)
+  scheduleItems: z
+    .array(playlistScheduleItemSchema)
+    .optional()
+    .describe("Array of schedule items for scheduled playlists"),
   programId: z.string().cuid().optional(),
   includeInAutoDJ: z.boolean().default(true),
   avoidDuplicates: z.boolean().default(true),

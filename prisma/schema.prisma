@@ -108,6 +108,10 @@ model Organization {
   // Streaming (Online Broadcasting)
   streamingConfig StreamingConfig?
 
+  // Remote Airtime Booking
+  airtimePackages AirtimePackage[]
+  airtimeBookings AirtimeBooking[]
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   suspendedAt DateTime?
@@ -2667,6 +2671,9 @@ model StreamDJAccount {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Remote Airtime Booking relation
+  airtimeBooking AirtimeBooking?
+
   @@unique([streamingConfigId, username])
   @@index([streamingConfigId])
   @@index([userId])
@@ -2871,4 +2878,151 @@ model StreamNowPlayingHistory {
   @@index([playedAt])
   @@index([songId])
   @@map("stream_now_playing_history")
+}
+
+// ============================================
+// REMOTE AIRTIME BOOKING
+// ============================================
+
+// Guest type for airtime bookings
+enum GuestType {
+  PREACHER
+  ADVERTISER
+  TALK_SHOW_HOST
+  MUSICIAN
+  PODCAST_HOST
+  OTHER
+}
+
+// Airtime booking status workflow
+enum AirtimeBookingStatus {
+  PENDING_PAYMENT    // Awaiting payment
+  PAYMENT_FAILED     // Payment attempt failed
+  PENDING_REVIEW     // Paid, awaiting admin review
+  APPROVED           // Admin approved, credentials sent
+  REJECTED           // Admin rejected (refund issued)
+  SCHEDULED          // Confirmed and scheduled in AzuraCast
+  LIVE               // Currently broadcasting
+  COMPLETED          // Broadcast finished successfully
+  NO_SHOW            // Guest didn't connect, slot released
+  CANCELLED          // Cancelled (by guest or admin)
+  EXPIRED            // Slot passed without action
+}
+
+// Pricing packages for airtime (e.g., 30min, 1hr, 2hr)
+model AirtimePackage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name            String // "30 Minutes", "1 Hour", "2 Hours"
+  description     String? @db.Text
+  durationMinutes Int // Duration in minutes (30, 60, 120)
+
+  // Pricing
+  price    Decimal @db.Decimal(10, 2)
+  currency String  @default("GHS")
+
+  // Configuration
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // Optional time restrictions
+  allowedDays       String? @db.Text // JSON: [0,1,2,3,4,5,6] - days allowed
+  allowedHoursStart String? // "06:00" - earliest booking time
+  allowedHoursEnd   String? // "22:00" - latest booking end time
+
+  // Relations
+  bookings AirtimeBooking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([isActive])
+  @@map("airtime_packages")
+}
+
+// Airtime booking requests from external guests
+model AirtimeBooking {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Booking reference (for guests to track)
+  bookingRef String @unique // e.g., "ABK-2024-001234"
+
+  // Guest information
+  guestName      String
+  guestEmail     String
+  guestPhone     String
+  guestType      GuestType // PREACHER, ADVERTISER, TALK_SHOW_HOST, etc.
+  guestTypeOther String? // If OTHER, custom description
+
+  // Program details
+  programTitle       String // What the guest wants to broadcast
+  programDescription String? @db.Text
+
+  // Package and timing
+  packageId String
+  package   AirtimePackage @relation(fields: [packageId], references: [id])
+
+  // Requested slot (guest's preference)
+  requestedDate      DateTime // Date they want to broadcast
+  requestedStartTime String // "14:00" format
+
+  // Approved slot (may differ from requested)
+  approvedDate      DateTime?
+  approvedStartTime String?
+  approvedEndTime   String?
+
+  // Booking workflow status
+  status AirtimeBookingStatus @default(PENDING_PAYMENT)
+
+  // Payment tracking
+  paymentStatus    PaymentStatus @default(PENDING)
+  paymentAmount    Decimal       @db.Decimal(10, 2)
+  paymentCurrency  String        @default("GHS")
+  paymentMethod    PaymentMethodType?
+  paymentProvider  String? // "PAYSTACK"
+  paymentReference String? // Paystack transaction reference
+  paidAt           DateTime?
+  refundedAt       DateTime?
+  refundReason     String?
+
+  // AzuraCast DJ account (created upon approval)
+  djAccountId String?         @unique
+  djAccount   StreamDJAccount? @relation(fields: [djAccountId], references: [id], onDelete: SetNull)
+  djUsername  String?
+  djPassword  String? // Plain text for guest (AzuraCast needs it)
+
+  // Broadcast tracking
+  actualStartTime    DateTime?
+  actualEndTime      DateTime?
+  wasNoShow          Boolean   @default(false)
+  autoDisconnectedAt DateTime?
+
+  // Admin notes
+  adminNotes   String?   @db.Text
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  // Notifications sent
+  paymentConfirmationSent  Boolean @default(false)
+  approvalNotificationSent Boolean @default(false)
+  credentialsSent          Boolean @default(false)
+  reminderSent             Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([bookingRef])
+  @@index([guestEmail])
+  @@index([requestedDate])
+  @@index([approvedDate])
+  @@map("airtime_bookings")
 }

@@ -110,13 +110,33 @@ export async function POST(request: NextRequest) {
         const azuracastService = createAzuraCastService();
 
         // Map playlist type to AzuraCast type
-        const typeMap: Record<string, "default" | "once_per_x_songs" | "once_per_x_minutes" | "once_per_hour" | "advanced"> = {
+        // Note: "scheduled" in our system uses "default" type with schedule_items in AzuraCast
+        const typeMap: Record<string, "default" | "once_per_x_songs" | "once_per_x_minutes" | "once_per_hour" | "once_per_day" | "advanced"> = {
           default: "default",
-          scheduled: "once_per_hour",
-          once_per_hour: "once_per_x_songs",
-          once_per_day: "once_per_hour",
+          scheduled: "default", // Scheduled playlists use default type with schedule_items
+          once_per_hour: "once_per_hour",
+          once_per_day: "once_per_day",
           advanced: "advanced",
         };
+
+        // Build schedule items for AzuraCast if this is a scheduled playlist
+        const scheduleItems = validatedData.type === "scheduled" && validatedData.scheduleItems
+          ? validatedData.scheduleItems.map((item: {
+              startTime: string;
+              endTime: string;
+              startDate?: string;
+              endDate?: string;
+              days?: number[];
+              loopOnce?: boolean;
+            }) => ({
+              start_time: item.startTime,
+              end_time: item.endTime,
+              start_date: item.startDate,
+              end_date: item.endDate,
+              days: item.days || [],
+              loop_once: item.loopOnce || false,
+            }))
+          : undefined;
 
         const azPlaylist = await azuracastService.createPlaylist(
           organization.streamingConfig.azuracastStationId,
@@ -125,6 +145,7 @@ export async function POST(request: NextRequest) {
             type: typeMap[validatedData.type] || "default",
             weight: validatedData.weight,
             isEnabled: validatedData.isEnabled,
+            scheduleItems,
           }
         );
         azuracastPlaylistId = azPlaylist.id;
@@ -143,6 +164,10 @@ export async function POST(request: NextRequest) {
     };
 
     // Create in database
+    // For scheduled playlists, store schedule items as JSON in scheduledDays field
+    // The first schedule item's times are stored in dedicated fields for quick access
+    const firstScheduleItem = validatedData.scheduleItems?.[0];
+
     const playlist = await prisma.streamPlaylist.create({
       data: {
         streamingConfigId: organization.streamingConfig.id,
@@ -151,9 +176,13 @@ export async function POST(request: NextRequest) {
         type: prismaTypeMap[validatedData.type] || "DEFAULT",
         weight: validatedData.weight,
         isEnabled: validatedData.isEnabled,
-        scheduledStartTime: validatedData.scheduleStart,
-        scheduledEndTime: validatedData.scheduleEnd,
-        scheduledDays: validatedData.scheduleDays ? JSON.stringify(validatedData.scheduleDays) : null,
+        scheduledStartTime: firstScheduleItem?.startTime || validatedData.scheduleStart,
+        scheduledEndTime: firstScheduleItem?.endTime || validatedData.scheduleEnd,
+        scheduledDays: validatedData.scheduleItems
+          ? JSON.stringify(validatedData.scheduleItems)
+          : validatedData.scheduleDays
+            ? JSON.stringify(validatedData.scheduleDays)
+            : null,
         programId: validatedData.programId,
       },
       include: {

@@ -112,6 +112,14 @@ export const dashboardNav: NavItem[] = [
         label: 'Dashboard',
       },
       {
+        href: '/streaming/airtime',
+        label: 'Airtime Bookings',
+      },
+      {
+        href: '/streaming/airtime/packages',
+        label: 'Airtime Packages',
+      },
+      {
         href: '/streaming/playlists',
         label: 'Playlists',
       },

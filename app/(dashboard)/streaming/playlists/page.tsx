@@ -43,12 +43,22 @@ interface Playlist {
   }
 }
 
+interface ScheduleItem {
+  startTime: string
+  endTime: string
+  startDate?: string
+  endDate?: string
+  days: number[]
+  loopOnce: boolean
+}
+
 interface CreatePlaylistForm {
   name: string
   type: string
   weight: number
   isEnabled: boolean
   programId?: string
+  scheduleItems: ScheduleItem[]
 }
 
 interface Program {
@@ -79,7 +89,25 @@ export default function PlaylistsPage() {
     weight: 3,
     isEnabled: true,
     programId: undefined,
+    scheduleItems: [{
+      startTime: '',
+      endTime: '',
+      startDate: '',
+      endDate: '',
+      days: [],
+      loopOnce: false,
+    }],
   })
+
+  const daysOfWeek = [
+    { value: 1, label: 'Mon' },
+    { value: 2, label: 'Tue' },
+    { value: 3, label: 'Wed' },
+    { value: 4, label: 'Thu' },
+    { value: 5, label: 'Fri' },
+    { value: 6, label: 'Sat' },
+    { value: 0, label: 'Sun' },
+  ]
 
   useEffect(() => {
     fetchData()
@@ -146,14 +174,32 @@ export default function PlaylistsPage() {
       return
     }
 
+    // Validate schedule items for scheduled playlists
+    if (form.type === 'scheduled') {
+      const schedule = form.scheduleItems[0]
+      if (!schedule?.startTime || !schedule?.endTime) {
+        setError('Please enter start and end times for the schedule')
+        setTimeout(() => setError(null), 5000)
+        return
+      }
+    }
+
     setCreating(true)
     setError(null)
 
     try {
+      // Build payload - only include scheduleItems for scheduled type
+      const payload = {
+        ...form,
+        scheduleItems: form.type === 'scheduled'
+          ? form.scheduleItems.filter(s => s.startTime && s.endTime)
+          : undefined,
+      }
+
       const response = await fetch('/api/streaming/playlists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
@@ -161,7 +207,7 @@ export default function PlaylistsPage() {
       if (response.ok) {
         setPlaylists([...playlists, data.data])
         setShowCreateModal(false)
-        setForm({ name: '', type: 'default', weight: 3, isEnabled: true, programId: undefined })
+        setForm({ name: '', type: 'default', weight: 3, isEnabled: true, programId: undefined, scheduleItems: [{ startTime: '', endTime: '', startDate: '', endDate: '', days: [], loopOnce: false }] })
         setSuccess('Playlist created successfully!')
         setTimeout(() => setSuccess(null), 5000)
       } else {
@@ -481,8 +527,8 @@ export default function PlaylistsPage() {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl border border-white/20 p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 rounded-2xl border border-white/20 p-6 w-full max-w-md my-8 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
               <Plus className="w-5 h-5 text-pink-400" />
               Create Playlist
@@ -518,6 +564,135 @@ export default function PlaylistsPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Schedule Fields - Only shown for Scheduled type */}
+              {form.type === 'scheduled' && (
+                <div className="space-y-4 p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                  <h3 className="text-sm font-semibold text-purple-300 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Schedule Settings
+                  </h3>
+
+                  {/* Time Fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">
+                        Start Time *
+                      </label>
+                      <input
+                        type="time"
+                        value={form.scheduleItems[0]?.startTime || ''}
+                        onChange={(e) => {
+                          const newSchedule = [...form.scheduleItems]
+                          newSchedule[0] = { ...newSchedule[0], startTime: e.target.value }
+                          setForm({ ...form, scheduleItems: newSchedule })
+                        }}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">
+                        End Time *
+                      </label>
+                      <input
+                        type="time"
+                        value={form.scheduleItems[0]?.endTime || ''}
+                        onChange={(e) => {
+                          const newSchedule = [...form.scheduleItems]
+                          newSchedule[0] = { ...newSchedule[0], endTime: e.target.value }
+                          setForm({ ...form, scheduleItems: newSchedule })
+                        }}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-white text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Range (Optional) */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">
+                        Start Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={form.scheduleItems[0]?.startDate || ''}
+                        onChange={(e) => {
+                          const newSchedule = [...form.scheduleItems]
+                          newSchedule[0] = { ...newSchedule[0], startDate: e.target.value }
+                          setForm({ ...form, scheduleItems: newSchedule })
+                        }}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">
+                        End Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={form.scheduleItems[0]?.endDate || ''}
+                        onChange={(e) => {
+                          const newSchedule = [...form.scheduleItems]
+                          newSchedule[0] = { ...newSchedule[0], endDate: e.target.value }
+                          setForm({ ...form, scheduleItems: newSchedule })
+                        }}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-white text-sm"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-500">Leave dates blank to play every day within the time range.</p>
+
+                  {/* Days of Week */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-2">
+                      Play Days (Leave blank for every day)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {daysOfWeek.map((day) => (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => {
+                            const newSchedule = [...form.scheduleItems]
+                            const currentDays = newSchedule[0]?.days || []
+                            const newDays = currentDays.includes(day.value)
+                              ? currentDays.filter(d => d !== day.value)
+                              : [...currentDays, day.value]
+                            newSchedule[0] = { ...newSchedule[0], days: newDays }
+                            setForm({ ...form, scheduleItems: newSchedule })
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            form.scheduleItems[0]?.days?.includes(day.value)
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-white/10 text-slate-400 hover:bg-white/20'
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Loop Once */}
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="loopOnce"
+                      checked={form.scheduleItems[0]?.loopOnce || false}
+                      onChange={(e) => {
+                        const newSchedule = [...form.scheduleItems]
+                        newSchedule[0] = { ...newSchedule[0], loopOnce: e.target.checked }
+                        setForm({ ...form, scheduleItems: newSchedule })
+                      }}
+                      className="w-4 h-4 rounded border-white/20 bg-white/10 text-purple-500 focus:ring-purple-500"
+                    />
+                    <label htmlFor="loopOnce" className="text-sm text-slate-300">
+                      Loop Once
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500 -mt-2">Only loop through the playlist once per scheduled time.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -570,7 +745,7 @@ export default function PlaylistsPage() {
               <button
                 onClick={() => {
                   setShowCreateModal(false)
-                  setForm({ name: '', type: 'default', weight: 3, isEnabled: true, programId: undefined })
+                  setForm({ name: '', type: 'default', weight: 3, isEnabled: true, programId: undefined, scheduleItems: [{ startTime: '', endTime: '', startDate: '', endDate: '', days: [], loopOnce: false }] })
                 }}
                 className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-slate-300 transition-all duration-300"
               >
