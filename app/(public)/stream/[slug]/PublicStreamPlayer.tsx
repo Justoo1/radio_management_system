@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import {
   Play,
   Pause,
@@ -292,7 +293,12 @@ export default function PublicStreamPlayer({
 
   // Player controls
   const handlePlayPause = () => {
-    if (!audioRef.current || !streamUrl) return
+    if (!audioRef.current || !streamUrl) {
+      toast.error('Unable to play stream', {
+        description: 'Stream URL is not configured. Please contact the station administrator.',
+      })
+      return
+    }
 
     if (isPlaying) {
       audioRef.current.pause()
@@ -305,10 +311,16 @@ export default function PublicStreamPlayer({
         .then(() => {
           setIsPlaying(true)
           setIsLoading(false)
+          toast.success('Now playing', {
+            description: `Listening to ${stationName}`,
+          })
         })
         .catch((error) => {
           console.error('Playback failed:', error)
           setIsLoading(false)
+          toast.error('Failed to play stream', {
+            description: 'Unable to load the audio stream. Please try again or check your internet connection.',
+          })
         })
     }
   }

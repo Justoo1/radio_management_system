@@ -97,20 +97,34 @@ export async function GET() {
       });
     }
 
-    // Build Web DJ URL if AzuraCast is configured
+    // Build Web DJ URL and fetch current stream URL if AzuraCast is configured
     let webDjUrl: string | null = null;
     let stationShortcode: string | null = null;
+    let currentStreamUrl: string | null = organization.streamingConfig.streamUrl;
     const azuracastUrl = process.env.AZURACAST_URL;
 
     if (azuracastUrl && organization.streamingConfig.azuracastStationId) {
       try {
-        // Fetch actual station data from AzuraCast to get the correct shortcode
+        // Fetch actual station data from AzuraCast to get the correct shortcode and stream URL
         const azuracastService = createAzuraCastService();
         const station = await azuracastService.getStation(organization.streamingConfig.azuracastStationId);
         stationShortcode = station.shortcode;
         webDjUrl = `${azuracastUrl}/public/${stationShortcode}/dj`;
+
+        // Update stream URL from AzuraCast (in case it changed)
+        if (station.listen_url) {
+          currentStreamUrl = station.listen_url;
+
+          // Update in database if it changed
+          if (currentStreamUrl !== organization.streamingConfig.streamUrl) {
+            await prisma.streamingConfig.update({
+              where: { id: organization.streamingConfig.id },
+              data: { streamUrl: currentStreamUrl },
+            });
+          }
+        }
       } catch (error) {
-        console.error("Failed to fetch station shortcode from AzuraCast:", error);
+        console.error("Failed to fetch station data from AzuraCast:", error);
         // Fallback to guessing the shortcode
         const fallbackShortcode = organization.slug || organization.name.toLowerCase().replace(/\s+/g, '-');
         webDjUrl = `${azuracastUrl}/public/${fallbackShortcode}/dj`;
@@ -120,6 +134,7 @@ export async function GET() {
     return NextResponse.json({
       data: {
         ...organization.streamingConfig,
+        streamUrl: currentStreamUrl, // Use the fresh stream URL
         webDjUrl,
         stationShortcode,
         azuracastUrl: azuracastUrl || null,

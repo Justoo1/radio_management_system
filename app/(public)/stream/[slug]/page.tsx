@@ -55,8 +55,34 @@ export default async function PublicStreamPage({ params }: Props) {
   const config = organization.streamingConfig
   const defaultMount = config.mountPoints[0]
 
-  // Build the stream URL
+  // Build the stream URL - fetch fresh from AzuraCast if available
   let streamUrl = config.streamUrl
+
+  // If we have AzuraCast station ID, fetch the current stream URL
+  if (config.azuracastStationId) {
+    try {
+      const { createAzuraCastService } = await import('@/lib/services/azuracast.service')
+      const azuracastService = createAzuraCastService()
+      const station = await azuracastService.getStation(config.azuracastStationId)
+
+      if (station.listen_url) {
+        streamUrl = station.listen_url
+
+        // Update database if URL changed
+        if (streamUrl !== config.streamUrl) {
+          await prisma.streamingConfig.update({
+            where: { id: config.id },
+            data: { streamUrl },
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch stream URL from AzuraCast:', error)
+      // Fall back to database URL or default mount
+    }
+  }
+
+  // Fallback to mount point if no stream URL
   if (!streamUrl && defaultMount?.mountPoint) {
     const baseUrl = process.env.AZURACAST_URL || ''
     streamUrl = `${baseUrl}${defaultMount.mountPoint}`
