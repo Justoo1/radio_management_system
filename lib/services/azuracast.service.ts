@@ -191,10 +191,10 @@ export interface AzuraCastPlaylist {
 }
 
 export interface AzuraCastMedia {
-  id: string;
+  id: number;
   unique_id: string;
   song_id: string;
-  art_updated_at: number;
+  art_updated_at?: number;
   path: string;
   length: number;
   length_text: string;
@@ -202,11 +202,13 @@ export interface AzuraCastMedia {
   artist: string;
   album: string;
   genre: string;
-  isrc: string;
-  lyrics: string;
-  art: string;
-  custom_fields: unknown[];
-  links: {
+  isrc?: string;
+  lyrics?: string;
+  art?: string;
+  mtime?: number;
+  size?: number;
+  custom_fields?: unknown[];
+  links?: {
     self: string;
     art: string;
     waveform: string;
@@ -707,15 +709,32 @@ class AzuraCastService {
 
     // Add schedule items for scheduled playlists
     if (options.scheduleItems && options.scheduleItems.length > 0) {
-      payload.schedule_items = options.scheduleItems.map((item) => ({
-        start_time: this.formatTimeForAzuraCast(item.start_time),
-        end_time: this.formatTimeForAzuraCast(item.end_time),
-        start_date: item.start_date || null,
-        end_date: item.end_date || null,
-        days: item.days || [],
-        loop_once: item.loop_once || false,
-      }));
+      console.log("Processing schedule items:", JSON.stringify(options.scheduleItems, null, 2));
+      payload.schedule_items = options.scheduleItems.map((item) => {
+        console.log("Raw schedule item:", item);
+
+        // Build schedule item - only include optional fields if they have values
+        const formatted: Record<string, unknown> = {
+          start_time: this.formatTimeForAzuraCast(item.start_time),
+          end_time: this.formatTimeForAzuraCast(item.end_time),
+          days: item.days || [],
+          loop_once: item.loop_once || false,
+        };
+
+        // Only include dates if they have actual values (not null/undefined/empty)
+        if (item.start_date) {
+          formatted.start_date = item.start_date;
+        }
+        if (item.end_date) {
+          formatted.end_date = item.end_date;
+        }
+
+        console.log("Formatted schedule item:", formatted);
+        return formatted;
+      });
     }
+
+    console.log("Final AzuraCast payload:", JSON.stringify(payload, null, 2));
 
     return this.request<AzuraCastPlaylist>(`/api/station/${stationId}/playlists`, {
       method: 'POST',
@@ -724,12 +743,12 @@ class AzuraCastService {
   }
 
   /**
-   * Format time string to seconds since midnight for AzuraCast
-   * AzuraCast expects time as seconds since midnight (0-86400)
+   * Format time string to HHMM integer for AzuraCast
+   * AzuraCast expects time as HHMM integer (e.g., 1800 for 18:00, 930 for 09:30)
    */
   private formatTimeForAzuraCast(time: string): number {
     const [hours, minutes] = time.split(':').map(Number);
-    return (hours * 3600) + (minutes * 60);
+    return (hours * 100) + minutes;
   }
 
   /**
@@ -745,14 +764,24 @@ class AzuraCastService {
 
     // Format schedule items if provided
     if (data.scheduleItems && data.scheduleItems.length > 0) {
-      payload.schedule_items = data.scheduleItems.map((item) => ({
-        start_time: this.formatTimeForAzuraCast(item.start_time),
-        end_time: this.formatTimeForAzuraCast(item.end_time),
-        start_date: item.start_date || null,
-        end_date: item.end_date || null,
-        days: item.days || [],
-        loop_once: item.loop_once || false,
-      }));
+      payload.schedule_items = data.scheduleItems.map((item) => {
+        const formatted: Record<string, unknown> = {
+          start_time: this.formatTimeForAzuraCast(item.start_time),
+          end_time: this.formatTimeForAzuraCast(item.end_time),
+          days: item.days || [],
+          loop_once: item.loop_once || false,
+        };
+
+        // Only include dates if they have actual values
+        if (item.start_date) {
+          formatted.start_date = item.start_date;
+        }
+        if (item.end_date) {
+          formatted.end_date = item.end_date;
+        }
+
+        return formatted;
+      });
       delete payload.scheduleItems;
     }
 
@@ -835,36 +864,59 @@ class AzuraCastService {
   }
 
   /**
-   * Upload a media file
-   * Note: This requires multipart/form-data handling
+   * Upload a media file to AzuraCast
+   * AzuraCast expects a JSON payload with:
+   * - 'path': destination path including filename
+   * - 'file': base64-encoded file content
    */
   async uploadMedia(
     stationId: number,
-    file: Blob,
+    file: Blob | File,
     filename: string,
-    path?: string
+    directory?: string
   ): Promise<AzuraCastMedia> {
-    const formData = new FormData();
-    formData.append('file', file, filename);
-    if (path) {
-      formData.append('path', path);
+    console.log(`Uploading media file: ${filename}, size: ${file.size}, type: ${file.type}`);
+
+    // Convert file to ArrayBuffer then to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
     }
+    const base64Content = btoa(binary);
+
+    // AzuraCast requires the 'path' field which is the full destination path including filename
+    // If directory is provided, prepend it to the filename
+    const destinationPath = directory ? `${directory}/${filename}` : filename;
 
     const url = `${this.baseUrl}/api/station/${stationId}/files`;
+    console.log(`Uploading to: ${url}, destination path: ${destinationPath}`);
+
+    // AzuraCast expects JSON with path and base64-encoded file
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'X-API-Key': this.apiKey,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        path: destinationPath,
+        file: base64Content,
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`AzuraCast upload failed: ${response.status}`, errorText);
       throw new Error(`AzuraCast upload error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log(`Upload successful, media ID: ${result.id}`);
+    return result;
   }
 
   /**
@@ -877,17 +929,40 @@ class AzuraCastService {
   }
 
   /**
-   * Add media to a playlist
+   * Add media to a playlist by importing M3U
+   * AzuraCast doesn't have a direct "add single media" endpoint,
+   * so we use the import endpoint with the media file path
    */
   async addMediaToPlaylist(
     stationId: number,
     playlistId: number,
-    mediaId: number
+    mediaPath: string
   ): Promise<void> {
-    await this.request(`/api/station/${stationId}/playlist/${playlistId}/media`, {
+    // Create M3U content with just the media file path
+    const m3uContent = mediaPath;
+    const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
+
+    const formData = new FormData();
+    formData.append('playlist_file', blob, 'playlist.m3u');
+
+    const url = `${this.baseUrl}/api/station/${stationId}/playlist/${playlistId}/import`;
+    const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ media_id: mediaId }),
+      headers: {
+        'X-API-Key': this.apiKey,
+      },
+      body: formData,
     });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AzuraCast import error: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error('Playlist import failed');
+    }
   }
 
   /**

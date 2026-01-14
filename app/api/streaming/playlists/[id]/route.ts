@@ -205,16 +205,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete from AzuraCast if connected
+    console.log("Checking AzuraCast deletion:", {
+      stationId: playlist.streamingConfig.azuracastStationId,
+      playlistId: playlist.azuracastPlaylistId,
+    });
+
     if (playlist.streamingConfig.azuracastStationId && playlist.azuracastPlaylistId) {
       try {
+        console.log(`Deleting playlist ${playlist.azuracastPlaylistId} from AzuraCast station ${playlist.streamingConfig.azuracastStationId}`);
         const azuracastService = createAzuraCastService();
         await azuracastService.deletePlaylist(
           playlist.streamingConfig.azuracastStationId,
           playlist.azuracastPlaylistId
         );
+        console.log("AzuraCast playlist deleted successfully");
       } catch (azuraError) {
         console.error("AzuraCast playlist deletion failed:", azuraError);
+        // Continue with local deletion even if AzuraCast fails
       }
+    } else {
+      console.log("Skipping AzuraCast deletion - no azuracastPlaylistId stored for this playlist");
     }
 
     // Delete from database (cascade will delete playlist songs)

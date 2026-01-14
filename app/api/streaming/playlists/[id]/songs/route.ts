@@ -11,7 +11,7 @@ import {
 type RouteParams = { params: Promise<{ id: string }> };
 
 // GET /api/streaming/playlists/[id]/songs - List songs in playlist
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const session = await auth();
     if (!session?.user?.organizationId) {
@@ -94,7 +94,93 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { mediaFileId, position } = playlistSongAddSchema.parse(body);
+
+    // Handle both single mediaFileId and batch mediaIds (from AzuraCast)
+    const { mediaFileId, mediaIds } = body;
+
+    // If mediaIds array is provided, add multiple AzuraCast media files
+    if (mediaIds && Array.isArray(mediaIds) && mediaIds.length > 0) {
+      if (!playlist.streamingConfig.azuracastStationId || !playlist.azuracastPlaylistId) {
+        return NextResponse.json(
+          { error: "Streaming not configured for this playlist" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const azuracastService = createAzuraCastService();
+        const addedSongs = [];
+        let currentPosition = (playlist.songs[0]?.position ?? 0) + 1;
+
+        // Get all AzuraCast media to match IDs
+        const azuracastMediaList = await azuracastService.getMedia(
+          playlist.streamingConfig.azuracastStationId
+        );
+
+        for (const mediaId of mediaIds) {
+          const azuracastMedia = azuracastMediaList.find((m) => m.id === mediaId);
+
+          if (!azuracastMedia) {
+            console.warn(`AzuraCast media ${mediaId} not found`);
+            continue;
+          }
+
+          // Check if already in playlist
+          const existingSong = await prisma.streamPlaylistSong.findFirst({
+            where: {
+              playlistId: id,
+              azuracastMediaId: mediaId,
+            },
+          });
+
+          if (existingSong) {
+            console.log(`Song ${azuracastMedia.title} already in playlist`);
+            continue;
+          }
+
+          // Add to AzuraCast playlist using M3U import (pass media path)
+          await azuracastService.addMediaToPlaylist(
+            playlist.streamingConfig.azuracastStationId,
+            playlist.azuracastPlaylistId,
+            azuracastMedia.path // Pass the file path, not the ID
+          );
+
+          // Add to database (without mediaFileId since it's from AzuraCast directly)
+          const playlistSong = await prisma.streamPlaylistSong.create({
+            data: {
+              playlistId: id,
+              azuracastMediaId: mediaId,
+              title: azuracastMedia.title || azuracastMedia.path,
+              artist: azuracastMedia.artist,
+              duration: azuracastMedia.length,
+              position: currentPosition++,
+            },
+          });
+
+          addedSongs.push(playlistSong);
+        }
+
+        // Log activity
+        await prisma.activityLog.create({
+          data: {
+            organizationId,
+            userId,
+            action: "ADD_TO_PLAYLIST",
+            resource: "stream_playlist",
+            resourceId: id,
+            description: `Added ${addedSongs.length} song(s) to playlist from AzuraCast`,
+          },
+        });
+
+        return NextResponse.json({ data: addedSongs }, { status: 201 });
+      } catch (error) {
+        console.error("Error adding AzuraCast media to playlist:", error);
+        throw error;
+      }
+    }
+
+    // Original single mediaFileId logic for local media files
+    const { position } = playlistSongAddSchema.parse(body);
 
     // Verify the media file belongs to this organization
     const mediaFile = await prisma.mediaFile.findFirst({
@@ -137,8 +223,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       try {
         const azuracastService = createAzuraCastService();
 
-        // First, check if media exists in AzuraCast or upload it
-        const mediaList = await azuracastService.getMediaLibrary(
+        // First, check if media exists in AzuraCast
+        const mediaList = await azuracastService.getMedia(
           playlist.streamingConfig.azuracastStationId
         );
 
@@ -150,14 +236,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (existingMedia) {
           azuracastMediaId = existingMedia.id;
-        }
 
-        // Add to AzuraCast playlist
-        if (azuracastMediaId) {
+          // Add to AzuraCast playlist using M3U import (pass media path)
           await azuracastService.addMediaToPlaylist(
             playlist.streamingConfig.azuracastStationId,
             playlist.azuracastPlaylistId,
-            azuracastMediaId
+            existingMedia.path // Pass the file path, not the ID
           );
         }
       } catch (azuraError) {

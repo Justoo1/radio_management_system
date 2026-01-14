@@ -534,6 +534,18 @@ export default function PlaylistsPage() {
               Create Playlist
             </h2>
 
+            {/* Error Message Inside Modal */}
+            {error && (
+              <div className="mb-4 bg-red-500/20 border border-red-500/50 rounded-xl p-3 text-red-300 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">{error}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">

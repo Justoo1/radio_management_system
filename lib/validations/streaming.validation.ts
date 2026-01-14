@@ -92,12 +92,18 @@ export const playlistScheduleItemSchema = z.object({
     .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (use HH:MM)"),
   startDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (use YYYY-MM-DD)")
-    .optional(),
+    .optional()
+    .transform((val) => (val === "" ? undefined : val))
+    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
+      message: "Invalid date format (use YYYY-MM-DD)",
+    }),
   endDate: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (use YYYY-MM-DD)")
-    .optional(),
+    .optional()
+    .transform((val) => (val === "" ? undefined : val))
+    .refine((val) => !val || /^\d{4}-\d{2}-\d{2}$/.test(val), {
+      message: "Invalid date format (use YYYY-MM-DD)",
+    }),
   days: z
     .array(z.number().min(0).max(6))
     .optional()

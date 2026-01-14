@@ -51,11 +51,19 @@ interface Playlist {
 }
 
 interface MediaFile {
-  id: string
-  name: string
-  duration?: number
-  url?: string
-  type: string
+  id: number
+  unique_id: string
+  song_id: string
+  title: string
+  artist: string
+  album: string
+  genre: string
+  length: number
+  length_text: string
+  path: string
+  art?: string
+  mtime: number
+  size: number
 }
 
 export default function PlaylistDetailPage() {
@@ -71,7 +79,7 @@ export default function PlaylistDetailPage() {
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedMedia, setSelectedMedia] = useState<string[]>([])
+  const [selectedMedia, setSelectedMedia] = useState<number[]>([])
 
   useEffect(() => {
     fetchPlaylist()
@@ -98,13 +106,18 @@ export default function PlaylistDetailPage() {
 
   const fetchMediaFiles = async () => {
     try {
-      const response = await fetch('/api/media?type=AUDIO&pageSize=100')
+      // Fetch from AzuraCast streaming media instead of local media
+      const response = await fetch('/api/streaming/media')
       if (response.ok) {
         const data = await response.json()
         setMediaFiles(data.data || [])
+      } else {
+        console.error('Failed to fetch streaming media files')
+        setMediaFiles([])
       }
     } catch (err) {
       console.error('Failed to fetch media files:', err)
+      setMediaFiles([])
     }
   }
 
@@ -119,10 +132,11 @@ export default function PlaylistDetailPage() {
     setError(null)
 
     try {
+      // Send AzuraCast media IDs (numbers) to add to playlist
       const response = await fetch(`/api/streaming/playlists/${playlistId}/songs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mediaFileIds: selectedMedia }),
+        body: JSON.stringify({ mediaIds: selectedMedia }),
       })
 
       const data = await response.json()
@@ -184,8 +198,9 @@ export default function PlaylistDetailPage() {
 
   const filteredMediaFiles = mediaFiles.filter(
     (file) =>
-      file.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !playlist?.songs.some((s) => s.mediaFile?.id === file.id)
+      (file.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        file.artist.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      !playlist?.songs.some((s) => s.mediaFile?.id === String(file.id))
   )
 
   if (loading) {
@@ -422,11 +437,11 @@ export default function PlaylistDetailPage() {
                         className="w-4 h-4 rounded border-white/20 bg-white/10 text-pink-500 focus:ring-pink-500"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-white font-medium truncate">{file.name}</p>
-                        <p className="text-xs text-slate-400">{file.type}</p>
+                        <p className="text-white font-medium truncate">{file.title || 'Unknown Title'}</p>
+                        <p className="text-xs text-slate-400">{file.artist || 'Unknown Artist'}</p>
                       </div>
-                      {file.duration && (
-                        <span className="text-sm text-slate-400">{formatDuration(file.duration)}</span>
+                      {file.length && (
+                        <span className="text-sm text-slate-400">{file.length_text}</span>
                       )}
                     </label>
                   ))}

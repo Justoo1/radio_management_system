@@ -138,19 +138,28 @@ export async function POST(request: NextRequest) {
             }))
           : undefined;
 
+        const playlistOptions = {
+          name: validatedData.name,
+          type: typeMap[validatedData.type] || "default",
+          weight: validatedData.weight,
+          isEnabled: validatedData.isEnabled,
+          scheduleItems,
+        };
+
+        console.log("Creating AzuraCast playlist with options:", JSON.stringify(playlistOptions, null, 2));
+
         const azPlaylist = await azuracastService.createPlaylist(
           organization.streamingConfig.azuracastStationId,
-          {
-            name: validatedData.name,
-            type: typeMap[validatedData.type] || "default",
-            weight: validatedData.weight,
-            isEnabled: validatedData.isEnabled,
-            scheduleItems,
-          }
+          playlistOptions
         );
         azuracastPlaylistId = azPlaylist.id;
+        console.log("AzuraCast playlist created with ID:", azuracastPlaylistId);
       } catch (azuraError) {
         console.error("AzuraCast playlist creation failed:", azuraError);
+        // Log the full error details
+        if (azuraError instanceof Error) {
+          console.error("Error message:", azuraError.message);
+        }
       }
     }
 
@@ -208,9 +217,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: playlist }, { status: 201 });
   } catch (error) {
     console.error("Error creating playlist:", error);
+
+    // Handle Zod validation errors
     if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json({ error: "Invalid input data" }, { status: 400 });
+      const zodError = error as { issues?: Array<{ path: (string | number)[]; message: string }> };
+      const details = zodError.issues?.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })) || [];
+
+      // Create a user-friendly error message
+      const errorMessage = details.length > 0
+        ? `Validation failed: ${details.map(d => d.message).join(", ")}`
+        : "Invalid input data";
+
+      return NextResponse.json({
+        error: errorMessage,
+        details,
+      }, { status: 400 });
     }
+
     return NextResponse.json(
       { error: "Failed to create playlist" },
       { status: 500 }

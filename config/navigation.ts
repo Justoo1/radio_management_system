@@ -124,6 +124,10 @@ export const dashboardNav: NavItem[] = [
         label: 'Playlists',
       },
       {
+        href: '/streaming/media',
+        label: 'Media Library',
+      },
+      {
         href: '/streaming/mount-points',
         label: 'Mount Points',
       },
