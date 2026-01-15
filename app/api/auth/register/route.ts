@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // Create a temporary placeholder organization (will be updated later)
+      // Create organization with 7-day full access trial
       const tempOrganization = await tx.organization.create({
         data: {
           name: validatedData.organizationName,
@@ -81,18 +81,38 @@ export async function POST(req: NextRequest) {
           country: validatedData.country || 'Ghana',
           status: 'TRIAL',
           trialStartDate: new Date(),
-          trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
           isTrialUsed: false,
+          // Grant unlimited access during trial
+          maxUsers: 999,
+          maxClients: 9999,
+          maxSMSPerMonth: 99999,
+          maxStorageGB: 500,
+          // Enable ALL features during trial
+          enabledFeatures: JSON.stringify([
+            'SMS_CAMPAIGNS',
+            'ADVERTISEMENTS',
+            'MEDIA_LIBRARY',
+            'WHATSAPP',
+            'EXPENSES',
+            'ADVANCED_ANALYTICS',
+            'REVENUE_REPORTS',
+            'CONTRACT_ANALYSIS',
+            'INVOICE_AGING',
+            'CLIENT_ANALYTICS',
+            'PROGRAM_ANALYTICS',
+            'SMS_ANALYTICS',
+          ]),
         },
       })
 
-      // Create Starter plan subscription with 30-day trial
+      // Create Starter plan subscription with 7-day trial
       const subscription = await tx.subscription.create({
         data: {
           planId: starterPlan.id,
           status: 'TRIALING',
           currentPeriodStart: new Date(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
+          currentPeriodEnd: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days trial
         },
       })
 

@@ -33,6 +33,22 @@ model Organization {
   registrationNumber String?
   taxId              String?
 
+  // Paystack Subaccount (for Airtime Payments)
+  paystackSubaccountId   String? // Paystack subaccount ID
+  paystackSubaccountCode String? // Paystack subaccount code
+  settlementType         String? // "bank" or "mobile_money"
+  // Bank Details
+  bankName       String?
+  accountNumber  String?
+  accountName    String?
+  bankCode       String? // Paystack bank code
+  // Mobile Money Details
+  momoProvider String? // "mtn", "vod", "tgo"
+  momoNumber   String?
+  momoName     String?
+  // Subaccount Setup Status
+  hasPaymentAccount Boolean @default(false)
+
   // Subscription & Status
   subscriptionId String?            @unique
   subscription   Subscription?      @relation(fields: [subscriptionId], references: [id])

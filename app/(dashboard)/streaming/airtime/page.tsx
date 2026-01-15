@@ -32,6 +32,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
+import PaymentAccountModal from '@/components/dashboard/PaymentAccountModal'
 
 interface AirtimeBooking {
   id: string
@@ -116,6 +117,7 @@ export default function AirtimeBookingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [hasPaymentAccount, setHasPaymentAccount] = useState(true) // Default to true to avoid flash
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -135,6 +137,20 @@ export default function AirtimeBookingsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [verifyingPayment, setVerifyingPayment] = useState<string | null>(null)
+
+  // Check payment account status
+  useEffect(() => {
+    const checkPaymentAccount = async () => {
+      try {
+        const response = await fetch('/api/organization/status')
+        const data = await response.json()
+        setHasPaymentAccount(data.data?.hasPaymentAccount ?? true)
+      } catch (error) {
+        console.error('Failed to check payment account status:', error)
+      }
+    }
+    checkPaymentAccount()
+  }, [])
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -311,6 +327,13 @@ export default function AirtimeBookingsPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Payment Account Modal */}
+      <PaymentAccountModal
+        hasPaymentAccount={hasPaymentAccount}
+        showOnPages={['airtime', 'streaming']}
+        currentPage="airtime"
+      />
+
       {/* Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-cyan-500/20 to-transparent rounded-full blur-3xl" />

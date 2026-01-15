@@ -14,6 +14,7 @@ import {
   Radio,
   ArrowRight,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react'
 
 interface Props {
@@ -65,6 +66,7 @@ export default async function ConfirmationPage({ params }: Props) {
   const isPaid = booking.paymentStatus === 'COMPLETED'
   const isPendingReview = booking.status === 'PENDING_REVIEW'
   const isApproved = ['APPROVED', 'SCHEDULED', 'LIVE', 'COMPLETED'].includes(booking.status)
+  const hasCredentials = booking.djUsername && booking.djPassword
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-4 md:p-8">
@@ -222,6 +224,41 @@ export default async function ConfirmationPage({ params }: Props) {
             </li>
           </ol>
         </div>
+
+        {/* Broadcast Credentials (if approved) */}
+        {hasCredentials && (
+          <div className="bg-emerald-500/10 backdrop-blur-xl rounded-2xl p-6 border border-emerald-500/30 mb-6">
+            <h2 className="text-lg font-bold text-emerald-300 mb-4 flex items-center gap-2">
+              <Radio className="w-5 h-5" />
+              Broadcast Credentials
+            </h2>
+            <p className="text-sm text-emerald-400/70 mb-4">
+              Use these credentials to connect via Web DJ at your scheduled time.
+            </p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="bg-emerald-500/10 rounded-xl p-4">
+                <p className="text-xs text-emerald-400/60 mb-1">Username</p>
+                <p className="font-mono text-white text-lg">{booking.djUsername}</p>
+              </div>
+              <div className="bg-emerald-500/10 rounded-xl p-4">
+                <p className="text-xs text-emerald-400/60 mb-1">Password</p>
+                <p className="font-mono text-white text-lg">{booking.djPassword}</p>
+              </div>
+            </div>
+            <p className="text-xs text-emerald-400/50 mt-4">
+              Keep these credentials safe. They will only work during your scheduled time slot.
+            </p>
+
+            {/* Broadcast Portal Link */}
+            <Link
+              href={`/broadcast/${booking.bookingRef}`}
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Go to Broadcast Portal
+            </Link>
+          </div>
+        )}
 
         {/* Email Notice */}
         <div className="flex items-center gap-3 bg-white/5 rounded-xl p-4 mb-6">

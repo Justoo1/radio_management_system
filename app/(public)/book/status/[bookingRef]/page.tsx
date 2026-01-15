@@ -230,6 +230,15 @@ export default async function BookingStatusPage({ params }: Props) {
             <p className="text-xs text-emerald-400/50 mt-4">
               Keep these credentials safe. They will only work during your scheduled time slot.
             </p>
+
+            {/* Broadcast Portal Link */}
+            <Link
+              href={`/broadcast/${booking.bookingRef}`}
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Go to Broadcast Portal
+            </Link>
           </div>
         )}
 

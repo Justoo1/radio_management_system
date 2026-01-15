@@ -27,13 +27,26 @@ export async function POST(
     // Find organization by slug
     const organization = await prisma.organization.findFirst({
       where: { slug },
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        name: true,
+        paystackSubaccountCode: true,
+        hasPaymentAccount: true,
+      },
     })
 
     if (!organization) {
       return NextResponse.json(
         { error: 'Station not found' },
         { status: 404 }
+      )
+    }
+
+    // Check if organization has setup payment account
+    if (!organization.hasPaymentAccount || !organization.paystackSubaccountCode) {
+      return NextResponse.json(
+        { error: 'This station has not setup their payment account yet. Please try again later.' },
+        { status: 400 }
       )
     }
 
@@ -98,6 +111,7 @@ export async function POST(
       currency: booking.paymentCurrency,
       callbackUrl,
       channels,
+      subaccount: organization.paystackSubaccountCode!, // Payment goes to organization's account
       metadata: {
         booking_ref: booking.bookingRef,
         booking_id: booking.id,

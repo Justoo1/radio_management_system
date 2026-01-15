@@ -34,6 +34,8 @@ import {
   Link as LinkIcon,
   CalendarClock,
 } from 'lucide-react'
+import PaymentAccountModal from '@/components/dashboard/PaymentAccountModal'
+import PaymentAccountBanner from '@/components/dashboard/PaymentAccountBanner'
 
 interface StreamingStatus {
   isOnline: boolean
@@ -95,7 +97,22 @@ export default function StreamingDashboardPage() {
   const [isMuted, setIsMuted] = useState(false)
   const [organizationSlug, setOrganizationSlug] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [hasPaymentAccount, setHasPaymentAccount] = useState(true) // Default to true to avoid flash
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  // Check payment account status
+  useEffect(() => {
+    const checkPaymentAccount = async () => {
+      try {
+        const response = await fetch('/api/organization/status')
+        const data = await response.json()
+        setHasPaymentAccount(data.data?.hasPaymentAccount ?? true)
+      } catch (error) {
+        console.error('Failed to check payment account status:', error)
+      }
+    }
+    checkPaymentAccount()
+  }, [])
 
   const getPublicStreamUrl = () => {
     if (typeof window === 'undefined' || !organizationSlug) return ''
@@ -394,6 +411,13 @@ export default function StreamingDashboardPage() {
 
   return (
     <div className="min-h-screen">
+      {/* Payment Account Modal */}
+      <PaymentAccountModal
+        hasPaymentAccount={hasPaymentAccount}
+        showOnPages={['airtime', 'streaming']}
+        currentPage="streaming"
+      />
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-cyan-500/20 to-transparent rounded-full blur-3xl" />
@@ -401,6 +425,8 @@ export default function StreamingDashboardPage() {
       </div>
 
       <div className="relative z-10 p-8">
+        {/* Payment Account Banner */}
+        <PaymentAccountBanner hasPaymentAccount={hasPaymentAccount} dismissible={true} />
         {/* Error Message */}
         {error && (
           <div className="mb-6 bg-red-500/20 border border-red-500/50 rounded-xl p-4 text-red-300 text-sm flex items-center justify-between">

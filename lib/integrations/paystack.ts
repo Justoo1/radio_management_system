@@ -24,6 +24,7 @@ export interface InitializePaymentOptions {
   callbackUrl?: string;
   mobileMoneyPhone?: string; // For mobile money payments
   mobileMoneyProvider?: 'mtn' | 'vod' | 'tgo'; // MTN, Vodafone, AirtelTigo
+  subaccount?: string; // Subaccount code for split payments
 }
 
 export interface PaystackInitResponse {
@@ -219,6 +220,11 @@ class PaystackService {
       payload.callback_url = options.callbackUrl;
     }
 
+    // For subaccount split payments
+    if (options.subaccount) {
+      payload.subaccount = options.subaccount;
+    }
+
     // For mobile money payments
     if (options.mobileMoneyPhone && options.mobileMoneyProvider) {
       payload.mobile_money = {
@@ -281,6 +287,72 @@ class PaystackService {
   }
 
   /**
+   * Create a subaccount for receiving payments
+   */
+  async createSubaccount(options: {
+    business_name: string
+    settlement_bank?: string // Bank code
+    account_number?: string
+    percentage_charge?: number // Platform fee percentage (0-100)
+    description?: string
+    primary_contact_email?: string
+    primary_contact_name?: string
+    primary_contact_phone?: string
+    settlement_schedule?: 'auto' | 'weekly' | 'monthly' | 'manual'
+  }): Promise<{
+    status: boolean
+    message: string
+    data: {
+      id: number
+      subaccount_code: string
+      business_name: string
+      settlement_bank: string
+      account_number: string
+      percentage_charge: number
+      is_verified: boolean
+      settlement_schedule: string
+    }
+  }> {
+    return this.request('/subaccount', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    })
+  }
+
+  /**
+   * Update an existing subaccount
+   */
+  async updateSubaccount(
+    subaccountCode: string,
+    options: {
+      business_name?: string
+      settlement_bank?: string
+      account_number?: string
+      percentage_charge?: number
+      description?: string
+      primary_contact_email?: string
+      primary_contact_name?: string
+      primary_contact_phone?: string
+      settlement_schedule?: 'auto' | 'weekly' | 'monthly' | 'manual'
+      active?: boolean
+    }
+  ): Promise<{
+    status: boolean
+    message: string
+    data: {
+      id: number
+      subaccount_code: string
+      business_name: string
+      is_verified: boolean
+    }
+  }> {
+    return this.request(`/subaccount/${encodeURIComponent(subaccountCode)}`, {
+      method: 'PUT',
+      body: JSON.stringify(options),
+    })
+  }
+
+  /**
    * List all banks for bank transfer payments
    */
   async listBanks(
@@ -288,6 +360,24 @@ class PaystackService {
     currency = 'GHS'
   ): Promise<{ status: boolean; data: Array<{ name: string; code: string }> }> {
     return this.request(`/bank?country=${country}&currency=${currency}`);
+  }
+
+  /**
+   * Resolve account number to get account name
+   */
+  async resolveAccountNumber(
+    accountNumber: string,
+    bankCode: string
+  ): Promise<{
+    status: boolean
+    message: string
+    data: {
+      account_number: string
+      account_name: string
+      bank_id: number
+    }
+  }> {
+    return this.request(`/bank/resolve?account_number=${accountNumber}&bank_code=${bankCode}`)
   }
 
   /**

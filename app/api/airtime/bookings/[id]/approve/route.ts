@@ -9,6 +9,8 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { airtimeBookingApproveSchema } from "@/lib/validations/airtime.validation";
 import { createAzuraCastService } from "@/lib/services/azuracast.service";
+import { resend, DEFAULT_FROM_EMAIL } from "@/lib/resend";
+import { BookingApprovedEmail } from "@/emails/booking-approved";
 import { ZodError } from "zod";
 import crypto from "crypto";
 
@@ -190,8 +192,42 @@ export async function POST(
       },
     });
 
-    // TODO: Send approval email with credentials
-    // await sendApprovalEmail(updatedBooking)
+    // Send approval email with credentials
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://radio.edtmsys.com";
+      const broadcastPortalUrl = `${appUrl}/broadcast/${booking.bookingRef}`;
+
+      // Format the approved date for email
+      const formattedDate = approvedDate.toLocaleDateString("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      await resend.emails.send({
+        from: DEFAULT_FROM_EMAIL,
+        to: booking.guestEmail,
+        subject: `Booking Approved - ${booking.programTitle} at ${booking.organization.name}`,
+        react: BookingApprovedEmail({
+          guestName: booking.guestName,
+          organizationName: booking.organization.name,
+          bookingRef: booking.bookingRef,
+          programTitle: booking.programTitle,
+          approvedDate: formattedDate,
+          approvedStartTime: validatedData.approvedStartTime,
+          approvedEndTime,
+          djUsername,
+          djPassword,
+          broadcastPortalUrl,
+        }),
+      });
+
+      console.log(`✅ Sent booking approval email to ${booking.guestEmail}`);
+    } catch (emailError) {
+      console.error("Failed to send approval email:", emailError);
+      // Don't fail the approval if email fails
+    }
 
     return NextResponse.json({
       success: true,

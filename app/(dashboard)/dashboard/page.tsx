@@ -27,6 +27,8 @@ import {
   type ActivityItem
 } from '@/app/actions/dashboard'
 import { formatRelativeTime } from '@/lib/utils/time'
+import PaymentAccountBanner from '@/components/dashboard/PaymentAccountBanner'
+import TrialBanner from '@/components/dashboard/TrialBanner'
 
 interface DashboardPageState {
   stats: DashboardStats | null
@@ -34,6 +36,9 @@ interface DashboardPageState {
   activities: ActivityItem[]
   loading: boolean
   error: string | null
+  hasPaymentAccount: boolean
+  organizationStatus: string
+  trialEndDate: Date | null
 }
 
 export default function DashboardPage() {
@@ -43,7 +48,10 @@ export default function DashboardPage() {
     metrics: null,
     activities: [],
     loading: true,
-    error: null
+    error: null,
+    hasPaymentAccount: true, // Default to true to avoid flash
+    organizationStatus: 'ACTIVE', // Default to avoid flash
+    trialEndDate: null
   })
 
   useEffect(() => {
@@ -51,17 +59,21 @@ export default function DashboardPage() {
       try {
         setState((prev) => ({ ...prev, loading: true, error: null }))
 
-        // Fetch all data in parallel
-        const [statsResult, metricsResult, activitiesResult] = await Promise.all([
+        // Fetch all data in parallel including organization status
+        const [statsResult, metricsResult, activitiesResult, orgStatusResult] = await Promise.all([
           fetchDashboardStats(),
           fetchDashboardMetrics(),
-          fetchDashboardActivity(3, 0)
+          fetchDashboardActivity(3, 0),
+          fetch('/api/organization/status').then(res => res.json())
         ])
 
         setState({
           stats: statsResult,
           metrics: metricsResult.data,
           activities: activitiesResult.data,
+          hasPaymentAccount: orgStatusResult.data?.hasPaymentAccount ?? true,
+          organizationStatus: orgStatusResult.data?.status ?? 'ACTIVE',
+          trialEndDate: orgStatusResult.data?.trialEndDate ? new Date(orgStatusResult.data.trialEndDate) : null,
           loading: false,
           error: null
         })
@@ -117,6 +129,18 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Trial Countdown Banner */}
+        {state.trialEndDate && (
+          <TrialBanner
+            trialEndDate={state.trialEndDate}
+            organizationStatus={state.organizationStatus}
+            dismissible={true}
+          />
+        )}
+
+        {/* Payment Account Banner */}
+        <PaymentAccountBanner hasPaymentAccount={state.hasPaymentAccount} dismissible={true} />
 
         {/* Stats Grid - Premium Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
