@@ -22,6 +22,7 @@ export enum Feature {
   ADVANCED_ANALYTICS = 'advanced_analytics',
   LISTENER_TRACKING = 'listener_tracking',
   STREAMING = 'streaming',
+  AIRTIME = 'airtime',
 
   // Report Access Features (Premium)
   REPORT_REVENUE = 'report_revenue',
@@ -209,6 +210,14 @@ export const FEATURES: Record<Feature, FeatureDefinition> = {
     icon: 'Wifi',
     premium: true,
     route: '/streaming',
+  },
+  [Feature.AIRTIME]: {
+    key: Feature.AIRTIME,
+    name: 'Airtime Booking',
+    description: 'Accept remote airtime requests for live broadcasts',
+    icon: 'Clock',
+    premium: true,
+    route: '/airtime',
   },
 }
 

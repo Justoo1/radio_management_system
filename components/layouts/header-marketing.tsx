@@ -10,6 +10,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSession } from 'next-auth/react'
 import { Menu, X, Shield } from 'lucide-react'
+import { marketingNav } from '@/config/navigation'
 
 export default function HeaderMarketing() {
   const { data: session } = useSession()
@@ -72,18 +73,15 @@ export default function HeaderMarketing() {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 z-10">
-          <Link href="/" className="text-slate-600 hover:text-purple-600 transition font-medium">
-            Home
-          </Link>
-          <Link href="/pricing" className="text-slate-600 hover:text-purple-600 transition font-medium">
-            Pricing
-          </Link>
-          <Link href="/features" className="text-slate-600 hover:text-purple-600 transition font-medium">
-            Features
-          </Link>
-          <Link href="/about" className="text-slate-600 hover:text-purple-600 transition font-medium">
-            About
-          </Link>
+          {marketingNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-slate-600 hover:text-purple-600 transition font-medium"
+            >
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Desktop Auth Links */}
@@ -138,34 +136,16 @@ export default function HeaderMarketing() {
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-slate-200 shadow-lg">
           <nav className="flex flex-col px-4 py-4 space-y-2">
-            <Link
-              href="/"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-4 py-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition font-medium"
-            >
-              Home
-            </Link>
-            <Link
-              href="/pricing"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-4 py-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition font-medium"
-            >
-              Pricing
-            </Link>
-            <Link
-              href="/features"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-4 py-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition font-medium"
-            >
-              Features
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-4 py-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition font-medium"
-            >
-              About
-            </Link>
+            {marketingNav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="px-4 py-2 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition font-medium"
+              >
+                {item.label}
+              </Link>
+            ))}
 
             {/* Mobile Auth Links */}
             <div className="pt-2 border-t border-slate-200 space-y-2">

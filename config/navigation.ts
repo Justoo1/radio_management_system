@@ -245,6 +245,10 @@ export const marketingNav: NavItem[] = [
     label: 'Home',
   },
   {
+    href: '/stations',
+    label: 'Radio Stations',
+  },
+  {
     href: '/pricing',
     label: 'Pricing',
   },

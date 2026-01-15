@@ -134,6 +134,7 @@ export default function AirtimeBookingsPage() {
   const [viewBooking, setViewBooking] = useState<AirtimeBooking | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [verifyingPayment, setVerifyingPayment] = useState<string | null>(null)
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -229,6 +230,35 @@ export default function AirtimeBookingsPage() {
       setError(err instanceof Error ? err.message : 'Failed to reject booking')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleVerifyPayment = async (booking: AirtimeBooking) => {
+    setVerifyingPayment(booking.id)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/airtime/bookings/${booking.id}/verify-payment`, {
+        method: 'POST',
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to verify payment')
+      }
+
+      if (data.success) {
+        setSuccess(data.message || 'Payment verified successfully!')
+        setTimeout(() => setSuccess(null), 5000)
+        fetchBookings()
+      } else {
+        setError(data.message || 'Payment verification failed')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify payment')
+    } finally {
+      setVerifyingPayment(null)
     }
   }
 
@@ -406,6 +436,7 @@ export default function AirtimeBookingsPage() {
             {bookings.map((booking) => {
               const statusStyle = STATUS_COLORS[booking.status] || STATUS_COLORS.PENDING_PAYMENT
               const isPendingReview = booking.status === 'PENDING_REVIEW'
+              const isPendingPayment = booking.status === 'PENDING_PAYMENT'
               const isLive = booking.status === 'LIVE'
 
               return (
@@ -469,6 +500,21 @@ export default function AirtimeBookingsPage() {
                           <Eye className="w-4 h-4" />
                           View
                         </button>
+
+                        {isPendingPayment && (
+                          <button
+                            onClick={() => handleVerifyPayment(booking)}
+                            disabled={verifyingPayment === booking.id}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/30 rounded-xl text-amber-300 transition-all duration-300 disabled:opacity-50"
+                          >
+                            {verifyingPayment === booking.id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4" />
+                            )}
+                            Verify Payment
+                          </button>
+                        )}
 
                         {isPendingReview && (
                           <>
@@ -619,6 +665,23 @@ export default function AirtimeBookingsPage() {
                       </div>
                     )}
                   </div>
+                  {viewBooking.status === 'PENDING_PAYMENT' && viewBooking.paymentStatus !== 'COMPLETED' && (
+                    <button
+                      onClick={() => {
+                        handleVerifyPayment(viewBooking)
+                        setViewBooking(null)
+                      }}
+                      disabled={verifyingPayment === viewBooking.id}
+                      className="mt-4 flex items-center justify-center gap-2 w-full px-4 py-3 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/30 rounded-xl text-amber-300 font-medium transition-all duration-300 disabled:opacity-50"
+                    >
+                      {verifyingPayment === viewBooking.id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Verify Payment with Paystack
+                    </button>
+                  )}
                 </div>
 
                 {/* DJ Credentials (if approved) */}

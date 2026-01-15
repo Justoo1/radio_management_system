@@ -140,11 +140,25 @@ export async function POST(
       },
     })
 
+    // Get public key for inline popup
+    const publicKey = process.env.PAYSTACK_PUBLIC_KEY
+    if (!publicKey) {
+      console.error('PAYSTACK_PUBLIC_KEY not configured')
+      return NextResponse.json(
+        { error: 'Payment system not properly configured' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
-      authorization_url: paymentInit.data.authorization_url,
-      access_code: paymentInit.data.access_code,
-      reference: paymentInit.data.reference,
+      data: {
+        authorization_url: paymentInit.data.authorization_url,
+        access_code: paymentInit.data.access_code,
+        reference: paymentInit.data.reference,
+        publicKey,
+        amount: ghsToPesewas(Number(booking.paymentAmount)),
+      },
     })
 
   } catch (error) {

@@ -106,7 +106,7 @@ export default function BookingForm({
       }
 
       // Redirect to payment page
-      router.push(`/book/${organizationSlug}/pay/${data.data.bookingRef}`)
+      router.push(`/book/${organizationSlug}/pay/${data.booking.bookingRef}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {

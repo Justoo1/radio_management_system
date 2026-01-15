@@ -32,6 +32,7 @@ import {
   Copy,
   Check,
   Link as LinkIcon,
+  CalendarClock,
 } from 'lucide-react'
 
 interface StreamingStatus {
@@ -75,9 +76,17 @@ interface QuickStat {
   href?: string
 }
 
+interface AirtimeStats {
+  total: number
+  pendingReview: number
+  approved: number
+  live: number
+}
+
 export default function StreamingDashboardPage() {
   const [status, setStatus] = useState<StreamingStatus | null>(null)
   const [config, setConfig] = useState<StreamingConfig | null>(null)
+  const [airtimeStats, setAirtimeStats] = useState<AirtimeStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -108,9 +117,10 @@ export default function StreamingDashboardPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [statusRes, configRes] = await Promise.all([
+      const [statusRes, configRes, airtimeRes] = await Promise.all([
         fetch('/api/streaming/status'),
         fetch('/api/streaming/config'),
+        fetch('/api/airtime/bookings?limit=1'),
       ])
 
       if (statusRes.ok) {
@@ -128,6 +138,17 @@ export default function StreamingDashboardPage() {
       } else if (configRes.status === 404) {
         // No streaming config yet
         setConfig(null)
+      }
+
+      // Fetch airtime stats
+      if (airtimeRes.ok) {
+        const airtimeData = await airtimeRes.json()
+        setAirtimeStats({
+          total: airtimeData.total || 0,
+          pendingReview: airtimeData.stats?.byStatus?.PENDING_REVIEW || 0,
+          approved: airtimeData.stats?.byStatus?.APPROVED || 0,
+          live: airtimeData.stats?.byStatus?.LIVE || 0,
+        })
       }
     } catch (err) {
       console.error('Failed to fetch streaming data:', err)
@@ -251,6 +272,13 @@ export default function StreamingDashboardPage() {
       color: 'red',
     },
     {
+      label: 'Airtime Bookings',
+      description: 'Manage guest broadcast requests',
+      icon: <CalendarClock className="w-5 h-5" />,
+      href: '/streaming/airtime',
+      color: 'amber',
+    },
+    {
       label: 'Mount Points',
       description: 'Manage stream endpoints',
       icon: <Radio className="w-5 h-5" />,
@@ -291,7 +319,7 @@ export default function StreamingDashboardPage() {
     )
   }
 
-  // No streaming config - show setup prompt
+  // No streaming config - show setup prompt but still allow airtime access
   if (!config) {
     return (
       <div className="min-h-screen">
@@ -308,24 +336,54 @@ export default function StreamingDashboardPage() {
             <p className="text-slate-400 text-lg">Configure your internet radio stream</p>
           </div>
 
-          <div className="max-w-2xl mx-auto mt-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto mt-8">
+            {/* Streaming Setup Card */}
             <div className="group relative">
               <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 text-center">
+              <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 text-center h-full flex flex-col">
                 <div className="bg-gradient-to-br from-cyan-500/30 to-blue-600/30 p-4 rounded-xl border border-cyan-400/30 backdrop-blur w-16 h-16 mx-auto mb-6 flex items-center justify-center">
                   <Radio className="w-8 h-8 text-cyan-300" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-4">Set Up Streaming</h2>
-                <p className="text-slate-400 mb-8">
+                <p className="text-slate-400 mb-8 flex-1">
                   Connect your radio station to AzuraCast to enable internet streaming, manage playlists, and track listener analytics.
                 </p>
                 <Link
                   href="/streaming/settings"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300"
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300"
                 >
                   <Settings className="w-5 h-5" />
                   Configure Streaming
                 </Link>
+              </div>
+            </div>
+
+            {/* Airtime Bookings Card */}
+            <div className="group relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-600/20 to-orange-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-8 border border-white/20 text-center h-full flex flex-col">
+                <div className="bg-gradient-to-br from-amber-500/30 to-orange-600/30 p-4 rounded-xl border border-amber-400/30 backdrop-blur w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+                  <CalendarClock className="w-8 h-8 text-amber-300" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-4">Airtime Bookings</h2>
+                <p className="text-slate-400 mb-8 flex-1">
+                  Allow guests to book airtime for preaching, advertising, or other broadcasts. Manage packages, approve bookings, and track payments.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/streaming/airtime/packages"
+                    className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-slate-300 px-6 py-3 rounded-xl font-semibold transition-all duration-300"
+                  >
+                    Manage Packages
+                  </Link>
+                  <Link
+                    href="/streaming/airtime"
+                    className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg shadow-amber-500/30 hover:shadow-amber-500/50 transition-all duration-300"
+                  >
+                    <CalendarClock className="w-5 h-5" />
+                    View Bookings
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -610,6 +668,66 @@ export default function StreamingDashboardPage() {
                     </div>
                   </Link>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Airtime Bookings Section */}
+        <div className="group relative mb-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-600/20 to-orange-600/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="relative bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20 hover:border-amber-500/50 transition-all duration-300">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="bg-gradient-to-br from-amber-500/30 to-orange-600/30 p-3 rounded-xl border border-amber-400/30 backdrop-blur">
+                  <CalendarClock className="w-6 h-6 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Airtime Bookings</h3>
+                  <p className="text-sm text-slate-400">Manage guest broadcast requests and packages</p>
+                </div>
+              </div>
+
+              {/* Airtime Stats */}
+              <div className="flex flex-wrap items-center gap-4">
+                {airtimeStats && airtimeStats.pendingReview > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                    <span className="text-sm text-blue-300 font-medium">
+                      {airtimeStats.pendingReview} Pending Review
+                    </span>
+                  </div>
+                )}
+                {airtimeStats && airtimeStats.live > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    <span className="text-sm text-red-300 font-medium">
+                      {airtimeStats.live} Live Now
+                    </span>
+                  </div>
+                )}
+                {airtimeStats && (
+                  <span className="text-sm text-slate-400">
+                    {airtimeStats.total} total bookings
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/streaming/airtime/packages"
+                  className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-slate-300 transition-all duration-300"
+                >
+                  Manage Packages
+                </Link>
+                <Link
+                  href="/streaming/airtime"
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-amber-600/40 to-orange-600/40 hover:from-amber-600/60 hover:to-orange-600/60 text-amber-200 rounded-xl border border-amber-500/30 hover:border-amber-400/50 transition-all duration-300 font-semibold"
+                >
+                  View Bookings
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
               </div>
             </div>
           </div>
