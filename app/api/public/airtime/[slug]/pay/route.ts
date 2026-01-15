@@ -185,8 +185,24 @@ export async function POST(
       )
     }
 
+    // Handle missing environment variable errors
+    if (error instanceof Error && error.message.includes('environment variable')) {
+      console.error('Missing Paystack configuration:', error.message)
+      return NextResponse.json(
+        { error: 'Payment system not properly configured. Please contact support.' },
+        { status: 500 }
+      )
+    }
+
+    // Log the actual error for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Detailed payment error:', {
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+    })
+
     return NextResponse.json(
-      { error: 'Failed to initialize payment' },
+      { error: 'Failed to initialize payment', details: errorMessage },
       { status: 500 }
     )
   }

@@ -42,10 +42,11 @@ declare global {
     PaystackPop: {
       setup: (options: {
         key: string
-        email: string
-        amount: number
+        email?: string
+        amount?: number
         currency?: string
-        ref: string
+        ref?: string
+        access_code?: string
         metadata?: Record<string, unknown>
         callback: (response: { reference: string; status: string }) => void
         onClose: () => void
@@ -103,18 +104,25 @@ export default function PaymentClient({
       // Store reference for verification
       setPaymentReference(data.data.reference)
 
-      // Open Paystack popup
+      // Open Paystack popup using the access_code from backend initialization
       if (window.PaystackPop) {
         const handler = window.PaystackPop.setup({
           key: data.data.publicKey,
-          email: booking.guestEmail,
-          amount: data.data.amount,
-          currency: 'GHS',
-          ref: data.data.reference,
-          metadata: {
-            bookingRef: booking.bookingRef,
-            guestName: booking.guestName,
-          },
+          // Use access_code for pre-initialized transactions
+          // This prevents double-initialization conflicts
+          ...(data.data.access_code
+            ? { access_code: data.data.access_code }
+            : {
+                email: booking.guestEmail,
+                amount: data.data.amount,
+                currency: 'GHS',
+                ref: data.data.reference,
+                metadata: {
+                  bookingRef: booking.bookingRef,
+                  guestName: booking.guestName,
+                },
+              }
+          ),
           callback: (response) => {
             // Payment completed - verify it
             verifyPayment(response.reference)
