@@ -65,7 +65,7 @@ export default function UpgradePage() {
         setOrgStatus({
           status: statusData.data?.status || 'ACTIVE',
           trialEndDate: statusData.data?.trialEndDate,
-          hasActiveSubscription: statusData.data?.status === 'ACTIVE' && statusData.data?.subscriptionId,
+          hasActiveSubscription: statusData.data?.hasActiveSubscription || false,
         })
       }
     } catch (err) {

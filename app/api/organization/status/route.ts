@@ -22,6 +22,13 @@ export async function GET() {
         status: true,
         hasPaymentAccount: true,
         trialEndDate: true,
+        subscriptionId: true,
+        subscription: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
         streamingConfig: {
           select: {
             azuracastStationId: true,
@@ -34,6 +41,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
     }
 
+    // Check if subscription is active
+    const hasActiveSubscription =
+      organization.subscriptionId &&
+      organization.subscription?.status === 'ACTIVE'
+
     return NextResponse.json({
       success: true,
       data: {
@@ -41,6 +53,9 @@ export async function GET() {
         hasStreamingConfig: !!organization.streamingConfig?.azuracastStationId,
         status: organization.status,
         trialEndDate: organization.trialEndDate,
+        subscriptionId: organization.subscriptionId,
+        subscriptionStatus: organization.subscription?.status,
+        hasActiveSubscription,
       },
     })
   } catch (error) {
