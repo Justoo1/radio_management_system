@@ -6,10 +6,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, MessageCircle, Mail, CheckCircle, Clock, CreditCard, Download, FileText, Calendar } from 'lucide-react'
+import { Phone, MessageCircle, Mail, CheckCircle, Clock, CreditCard, Download, FileText, Calendar, PartyPopper } from 'lucide-react'
 import { FormSection } from '@/components/settings/form-section'
 import { SettingsCard } from '@/components/settings/settings-card'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { getEnabledFeatures } from '@/app/actions/features'
 import { getOrganizationPayments } from '@/app/actions/subscription'
 import { getOrganizationInfo } from '@/app/actions/organization'
@@ -38,6 +39,10 @@ interface Subscription {
 }
 
 export default function BillingSettingsPage() {
+  const searchParams = useSearchParams()
+  const upgradeSuccess = searchParams.get('upgrade') === 'success'
+  const subscriptionSuccess = searchParams.get('subscription') === 'success'
+  const [showSuccess, setShowSuccess] = useState(upgradeSuccess || subscriptionSuccess)
   const [enabledFeatures, setEnabledFeatures] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [payments, setPayments] = useState<Payment[]>([])
@@ -182,6 +187,36 @@ export default function BillingSettingsPage() {
 
   return (
     <div className="space-y-8">
+      {/* Success Message */}
+      {showSuccess && (
+        <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-6 relative">
+          <button
+            onClick={() => setShowSuccess(false)}
+            className="absolute top-4 right-4 text-emerald-300 hover:text-emerald-100"
+          >
+            ✕
+          </button>
+          <div className="flex items-start gap-4">
+            <div className="bg-emerald-500/30 rounded-full p-3">
+              <CheckCircle className="w-6 h-6 text-emerald-300" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-emerald-100 mb-2">
+                {upgradeSuccess ? 'Plan Upgrade Successful!' : 'Subscription Activated!'}
+              </h3>
+              <p className="text-emerald-200 mb-3">
+                {upgradeSuccess
+                  ? 'Your plan has been successfully upgraded. Your new limits and features are now active.'
+                  : 'Your subscription has been activated successfully. Welcome aboard!'}
+              </p>
+              <p className="text-sm text-emerald-300">
+                Payment will be processed shortly. You can view your receipt below once the payment is confirmed.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Current Plan */}
       <SettingsCard>
         <FormSection title="Current Subscription">

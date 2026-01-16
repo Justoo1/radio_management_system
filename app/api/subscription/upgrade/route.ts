@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     // Build callback URL
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
-    const callbackUrl = `${baseUrl}/dashboard/billing?upgrade=success`
+    const callbackUrl = `${baseUrl}/settings/billing?upgrade=success`
 
     // Initialize Paystack payment
     const paystack = getPaystackService()
