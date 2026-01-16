@@ -31,6 +31,7 @@ interface OrganizationStatus {
   status: string
   currentPlan?: string
   trialEndDate?: string
+  hasActiveSubscription?: boolean
 }
 
 export default function UpgradePage() {
@@ -64,6 +65,7 @@ export default function UpgradePage() {
         setOrgStatus({
           status: statusData.data?.status || 'ACTIVE',
           trialEndDate: statusData.data?.trialEndDate,
+          hasActiveSubscription: statusData.data?.status === 'ACTIVE' && statusData.data?.subscriptionId,
         })
       }
     } catch (err) {
@@ -79,8 +81,13 @@ export default function UpgradePage() {
     setError(null)
 
     try {
+      // Use upgrade endpoint if user has active subscription, otherwise use subscribe
+      const endpoint = orgStatus?.hasActiveSubscription
+        ? '/api/subscription/upgrade'
+        : '/api/subscription/subscribe'
+
       // Initialize payment
-      const response = await fetch('/api/subscription/subscribe', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),

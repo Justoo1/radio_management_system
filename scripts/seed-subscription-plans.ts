@@ -125,7 +125,7 @@ async function main() {
     where: { name: 'Enterprise' },
     update: {
       description: 'For large stations with custom requirements',
-      price: '0', // Custom pricing - contact sales
+      price: '2500', // GHS 2,500/month for unlimited enterprise features
       currency: 'GHS',
       billingInterval: 'MONTHLY',
       maxUsers: 999,
@@ -150,7 +150,7 @@ async function main() {
     create: {
       name: 'Enterprise',
       description: 'For large stations with custom requirements',
-      price: '0', // Custom pricing - contact sales
+      price: '2500', // GHS 2,500/month for unlimited enterprise features
       currency: 'GHS',
       billingInterval: 'MONTHLY',
       maxUsers: 999,
@@ -179,7 +179,7 @@ async function main() {
   console.log('\nPlans summary:')
   console.log(`  - Starter: GHS ${starterPlan.price}/month`)
   console.log(`  - Professional: GHS ${professionalPlan.price}/month (Most Popular)`)
-  console.log(`  - Enterprise: Custom pricing`)
+  console.log(`  - Enterprise: GHS ${enterprisePlan.price}/month`)
 }
 
 main()

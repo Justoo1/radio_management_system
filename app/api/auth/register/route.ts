@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
           maxClients: 9999,
           maxSMSPerMonth: 99999,
           maxStorageGB: 500,
+          maxPrograms: 9999,
           // Enable ALL features during trial
           enabledFeatures: JSON.stringify([
             'SMS_CAMPAIGNS',

@@ -64,6 +64,7 @@ model Organization {
   maxClients     Int @default(100)
   maxSMSPerMonth Int @default(500)
   maxStorageGB   Int @default(5)
+  maxPrograms    Int @default(50)
 
   // Feature Flags (Admin can lock/unlock features)
   enabledFeatures String @default("[]") @db.Text // JSON array of enabled feature keys

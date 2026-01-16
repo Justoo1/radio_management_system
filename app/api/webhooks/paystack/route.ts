@@ -180,6 +180,7 @@ async function handleSubscriptionPaymentSuccess(reference: string, data: any, me
         maxClients: plan.maxClients,
         maxSMSPerMonth: plan.maxSMSPerMonth,
         maxStorageGB: plan.maxStorageGB,
+        maxPrograms: plan.maxPrograms,
         enabledFeatures: JSON.stringify(enabledFeatures),
         isTrialUsed: true,
       },

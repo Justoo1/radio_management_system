@@ -75,12 +75,37 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Delete from AzuraCast
+    // Get file info before deletion to update storage
     const azuracastService = createAzuraCastService();
+    let fileSize = 0;
+    try {
+      const mediaFile = await azuracastService.getMediaFile(
+        streamingConfig.azuracastStationId,
+        id
+      );
+      fileSize = mediaFile.size || 0; // Size in bytes from AzuraCast
+    } catch (error) {
+      console.warn("Could not get file size before deletion:", error);
+    }
+
+    // Delete from AzuraCast
     await azuracastService.deleteMedia(
       streamingConfig.azuracastStationId,
       id
     );
+
+    // Update streaming storage usage (decrement)
+    if (fileSize > 0) {
+      const fileSizeMB = Math.ceil(fileSize / (1024 * 1024));
+      await prisma.streamingConfig.update({
+        where: { organizationId },
+        data: {
+          storageUsedMB: {
+            decrement: fileSizeMB,
+          },
+        },
+      });
+    }
 
     // Log activity
     await prisma.activityLog.create({

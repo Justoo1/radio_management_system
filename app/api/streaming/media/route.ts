@@ -108,6 +108,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check organization storage limit before upload
+    const organization = await prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { maxStorageGB: true },
+    });
+
+    if (!organization) {
+      return NextResponse.json(
+        { error: "Organization not found" },
+        { status: 404 }
+      );
+    }
+
+    // Calculate current storage usage (MediaFile + Streaming storage)
+    const [mediaStorage, streamConfig] = await Promise.all([
+      prisma.mediaFile.aggregate({
+        where: { organizationId },
+        _sum: { size: true },
+      }),
+      prisma.streamingConfig.findUnique({
+        where: { organizationId },
+        select: { storageUsedMB: true, storageQuotaMB: true },
+      }),
+    ]);
+
+    const mediaStorageBytes = mediaStorage._sum?.size || 0;
+    const streamingStorageBytes = (streamConfig?.storageUsedMB || 0) * 1024 * 1024; // MB to bytes
+    const totalUsedBytes = mediaStorageBytes + streamingStorageBytes + file.size;
+    const maxStorageBytes = organization.maxStorageGB * 1024 * 1024 * 1024; // GB to bytes
+
+    if (totalUsedBytes > maxStorageBytes) {
+      const usedGB = ((mediaStorageBytes + streamingStorageBytes) / (1024 * 1024 * 1024)).toFixed(2);
+      const fileMB = (file.size / (1024 * 1024)).toFixed(2);
+      return NextResponse.json(
+        {
+          error: "Storage limit exceeded",
+          message: `Uploading this file would exceed your storage limit. Current usage: ${usedGB}GB / ${organization.maxStorageGB}GB. File size: ${fileMB}MB. Please upgrade your plan for more storage.`,
+        },
+        { status: 400 }
+      );
+    }
+
     // Upload to AzuraCast
     const azuracastService = createAzuraCastService();
     const uploadedMedia = await azuracastService.uploadMedia(
@@ -116,6 +158,17 @@ export async function POST(request: NextRequest) {
       file.name,
       path || undefined
     );
+
+    // Update streaming storage usage
+    const fileSizeMB = file.size / (1024 * 1024);
+    await prisma.streamingConfig.update({
+      where: { organizationId },
+      data: {
+        storageUsedMB: {
+          increment: Math.ceil(fileSizeMB), // Round up to nearest MB
+        },
+      },
+    });
 
     // Log activity
     await prisma.activityLog.create({
