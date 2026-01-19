@@ -245,20 +245,42 @@ export async function deleteOrganization(
 
 /**
  * Get organization information for display
+ * Available to any authenticated user in the organization
  */
 export async function getOrganizationInfo(): Promise<ActionResponse<any>> {
   try {
-    const { organization } = await getAuthenticatedUserOrganization()
+    const session = await auth()
+
+    if (!session || !session.user?.email) {
+      return {
+        success: false,
+        message: 'Unauthorized: Please log in',
+        error: 'Not authenticated',
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { organization: true },
+    })
+
+    if (!user || !user.organization) {
+      return {
+        success: false,
+        message: 'Organization not found',
+        error: 'User or organization not found',
+      }
+    }
 
     return {
       success: true,
       message: 'Organization information retrieved',
       data: {
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-        status: organization.status,
-        createdAt: organization.createdAt,
+        id: user.organization.id,
+        name: user.organization.name,
+        slug: user.organization.slug,
+        status: user.organization.status,
+        createdAt: user.organization.createdAt,
       },
     }
   } catch (error) {

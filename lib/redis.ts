@@ -6,7 +6,7 @@ const getRedisClient = () => {
   const isUpstash = redisUrl.includes('upstash');
 
   const options: any = {
-    maxRetriesPerRequest: null, // null = retry indefinitely
+    maxRetriesPerRequest: 3, // Limit retries to prevent hanging
     enableReadyCheck: false,
     enableOfflineQueue: true,
     tls: isUpstash ? { rejectUnauthorized: false } : undefined,
@@ -21,17 +21,19 @@ const getRedisClient = () => {
 
   // Upstash-specific settings
   if (isUpstash) {
-    options.connectTimeout = 10000;
-    options.commandTimeout = 10000;
+    options.connectTimeout = 5000;  // 5 seconds connection timeout
+    options.commandTimeout = 5000;  // 5 seconds per command
     options.retryStrategy = (times: number) => {
-      if (times > 10) return null; // Stop retrying after 10 attempts
-      return Math.min(times * 100, 3000);
+      if (times > 5) return null; // Stop retrying after 5 attempts
+      return Math.min(times * 200, 2000);
     };
   } else {
     // Local Redis settings
-    options.connectTimeout = 5000;
+    options.connectTimeout = 3000;
+    options.commandTimeout = 3000;  // Add command timeout for local too
     options.retryStrategy = (times: number) => {
-      const delay = Math.min(times * 50, 2000);
+      if (times > 5) return null; // Stop retrying after 5 attempts
+      const delay = Math.min(times * 100, 1000);
       return delay;
     };
   }

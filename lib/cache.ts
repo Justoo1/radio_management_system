@@ -5,6 +5,19 @@
 
 import { getRedis } from './redis'
 
+// Cache operation timeout (3 seconds)
+const CACHE_TIMEOUT_MS = 3000
+
+/**
+ * Wrap a promise with a timeout
+ */
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  const timeout = new Promise<T>((resolve) => {
+    setTimeout(() => resolve(fallback), ms)
+  })
+  return Promise.race([promise, timeout])
+}
+
 // Cache TTL constants (in seconds)
 export const CACHE_TTL = {
   SUBSCRIPTION_PLANS: 3600,      // 1 hour - rarely changes
@@ -32,16 +45,20 @@ export const CACHE_KEYS = {
 }
 
 /**
- * Get cached data from Redis
+ * Get cached data from Redis with timeout
  */
 export async function getCache<T>(key: string): Promise<T | null> {
   try {
     const redis = getRedis()
-    const data = await redis.get(key)
-    if (data) {
-      return JSON.parse(data) as T
+    const fetchData = async (): Promise<T | null> => {
+      const data = await redis.get(key)
+      if (data) {
+        return JSON.parse(data) as T
+      }
+      return null
     }
-    return null
+    // Timeout after 3 seconds and return null (cache miss)
+    return await withTimeout(fetchData(), CACHE_TIMEOUT_MS, null)
   } catch (error) {
     console.error('Cache get error:', error)
     return null
