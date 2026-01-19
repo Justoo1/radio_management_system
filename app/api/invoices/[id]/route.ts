@@ -1,6 +1,7 @@
 /**
  * Individual Invoice API Routes
  * Handles GET, PUT, DELETE for specific invoices
+ * OPTIMIZED: Removed redundant user queries, use session.user.organizationId
  */
 
 import { auth } from '@/lib/auth'
@@ -18,28 +19,18 @@ export async function GET(
     const { id } = await params
     const session = await auth()
 
-    if (!session || !session.user?.email) {
+    // OPTIMIZED: Use organizationId from session directly
+    if (!session?.user?.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and organization
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { organization: true },
-    })
-
-    if (!user || !user.organizationId) {
-      return NextResponse.json(
-        { error: 'User or organization not found' },
-        { status: 404 }
-      )
-    }
+    const organizationId = session.user.organizationId
 
     // Fetch invoice with all related data
     const invoice = await prisma.invoice.findFirst({
       where: {
         id,
-        organizationId: user.organizationId,
+        organizationId,
       },
       include: {
         client: true,
@@ -76,6 +67,7 @@ export async function GET(
 }
 
 // PUT /api/invoices/[id] - Update invoice (draft only)
+// OPTIMIZED: Removed redundant user query
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -84,28 +76,19 @@ export async function PUT(
     const { id } = await params
     const session = await auth()
 
-    if (!session || !session.user?.email) {
+    // OPTIMIZED: Use organizationId from session directly
+    if (!session?.user?.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and organization
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { organization: true },
-    })
-
-    if (!user || !user.organizationId) {
-      return NextResponse.json(
-        { error: 'User or organization not found' },
-        { status: 404 }
-      )
-    }
+    const organizationId = session.user.organizationId
+    const userId = session.user.id
 
     // Verify invoice exists and belongs to organization
     const existingInvoice = await prisma.invoice.findFirst({
       where: {
         id,
-        organizationId: user.organizationId,
+        organizationId,
       },
     })
 
@@ -146,7 +129,7 @@ export async function PUT(
       const client = await prisma.client.findFirst({
         where: {
           id: clientId,
-          organizationId: user.organizationId,
+          organizationId,
         },
       })
 
@@ -163,7 +146,7 @@ export async function PUT(
       const contract = await prisma.contract.findFirst({
         where: {
           id: contractId,
-          organizationId: user.organizationId,
+          organizationId,
         },
       })
 
@@ -229,8 +212,8 @@ export async function PUT(
     // Log activity
     await prisma.activityLog.create({
       data: {
-        organizationId: user.organizationId,
-        userId: user.id,
+        organizationId,
+        userId,
         action: 'UPDATE',
         resource: 'Invoice',
         resourceId: id,
@@ -260,6 +243,7 @@ export async function PUT(
 }
 
 // DELETE /api/invoices/[id] - Delete invoice (draft only)
+// OPTIMIZED: Removed redundant user query
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -268,28 +252,19 @@ export async function DELETE(
     const { id } = await params
     const session = await auth()
 
-    if (!session || !session.user?.email) {
+    // OPTIMIZED: Use organizationId from session directly
+    if (!session?.user?.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and organization
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { organization: true },
-    })
-
-    if (!user || !user.organizationId) {
-      return NextResponse.json(
-        { error: 'User or organization not found' },
-        { status: 404 }
-      )
-    }
+    const organizationId = session.user.organizationId
+    const userId = session.user.id
 
     // Verify invoice exists and belongs to organization
     const invoice = await prisma.invoice.findFirst({
       where: {
         id,
-        organizationId: user.organizationId,
+        organizationId,
       },
     })
 
@@ -316,8 +291,8 @@ export async function DELETE(
     // Log activity
     await prisma.activityLog.create({
       data: {
-        organizationId: user.organizationId,
-        userId: user.id,
+        organizationId,
+        userId,
         action: 'DELETE',
         resource: 'Invoice',
         resourceId: id,

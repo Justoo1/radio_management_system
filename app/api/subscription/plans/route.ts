@@ -1,36 +1,16 @@
 /**
  * Subscription Plans API
  * Get all active subscription plans
+ * OPTIMIZED: Added Redis caching (1 hour TTL - plans rarely change)
  */
 
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { getCachedSubscriptionPlans } from '@/lib/cache'
 
 export async function GET() {
   try {
-    const plans = await prisma.subscriptionPlan.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        sortOrder: 'asc',
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        price: true,
-        currency: true,
-        billingInterval: true,
-        maxUsers: true,
-        maxClients: true,
-        maxSMSPerMonth: true,
-        maxStorageGB: true,
-        maxPrograms: true,
-        features: true,
-        isPopular: true,
-      },
-    })
+    // Use cached subscription plans (1 hour TTL)
+    const plans = await getCachedSubscriptionPlans()
 
     return NextResponse.json({
       success: true,
@@ -45,4 +25,5 @@ export async function GET() {
   }
 }
 
+// Can be cached since plans rarely change
 export const dynamic = 'force-dynamic'

@@ -1,6 +1,7 @@
 /**
  * Invoice API Routes
  * Handles GET (list) and POST (create) for invoices
+ * OPTIMIZED: Reduced from 7 queries to 3 queries
  */
 
 import { auth } from '@/lib/auth'
@@ -14,22 +15,12 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user?.email) {
+    // OPTIMIZED: Use organizationId from session directly (no extra user query)
+    if (!session?.user?.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and organization
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { organization: true },
-    })
-
-    if (!user || !user.organizationId) {
-      return NextResponse.json(
-        { error: 'User or organization not found' },
-        { status: 404 }
-      )
-    }
+    const organizationId = session.user.organizationId
 
     // Parse and validate query parameters
     const { searchParams } = new URL(request.url)
@@ -51,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Build where conditions
     const whereConditions: any = {
-      organizationId: user.organizationId,
+      organizationId,
     }
 
     if (status) whereConditions.status = status
@@ -77,58 +68,46 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Fetch invoices with client info
-    const invoices = await prisma.invoice.findMany({
-      where: whereConditions,
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // OPTIMIZED: Run all queries in parallel (3 queries instead of 7)
+    const [invoices, total, summaryData] = await Promise.all([
+      // Query 1: Fetch invoices with client info
+      prisma.invoice.findMany({
+        where: whereConditions,
+        include: {
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
+          items: true,
+          payments: true,
         },
-        items: true,
-        payments: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    })
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
 
-    // Get total count
-    const total = await prisma.invoice.count({
-      where: whereConditions,
-    })
+      // Query 2: Get total count for pagination
+      prisma.invoice.count({
+        where: whereConditions,
+      }),
 
-    // Calculate summary metrics
-    const summary = await prisma.invoice.aggregate({
-      where: {
-        organizationId: user.organizationId,
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    })
+      // Query 3: Get all summary data in a single aggregation
+      // Using raw query to combine multiple aggregates
+      prisma.$queryRaw<[{ total_amount: bigint | null; paid_amount: bigint | null; overdue_count: bigint }]>`
+        SELECT
+          (SELECT COALESCE(SUM("totalAmount"), 0) FROM "Invoice" WHERE "organizationId" = ${organizationId}) as total_amount,
+          (SELECT COALESCE(SUM(p.amount), 0) FROM "Payment" p INNER JOIN "Invoice" i ON p."invoiceId" = i.id WHERE i."organizationId" = ${organizationId}) as paid_amount,
+          (SELECT COUNT(*) FROM "Invoice" WHERE "organizationId" = ${organizationId} AND status = 'OVERDUE') as overdue_count
+      `,
+    ])
 
-    const paidAmount = await prisma.payment.aggregate({
-      where: {
-        invoice: { organizationId: user.organizationId },
-      },
-      _sum: {
-        amount: true,
-      },
-    })
-
-    const overdueInvoices = await prisma.invoice.count({
-      where: {
-        organizationId: user.organizationId,
-        status: 'OVERDUE',
-      },
-    })
-
-    const totalInvoicesAmount = Number(summary._sum.totalAmount || 0)
-    const totalPaidAmount = Number(paidAmount._sum.amount || 0)
+    const summary = summaryData[0]
+    const totalInvoicesAmount = summary ? Number(summary.total_amount ?? 0) : 0
+    const totalPaidAmount = summary ? Number(summary.paid_amount ?? 0) : 0
+    const overdueCount = summary ? Number(summary.overdue_count ?? 0) : 0
 
     return NextResponse.json({
       data: invoices.map((invoice) => {
@@ -150,7 +129,7 @@ export async function GET(request: NextRequest) {
         totalInvoices: totalInvoicesAmount,
         totalPaid: totalPaidAmount,
         totalOutstanding: totalInvoicesAmount - totalPaidAmount,
-        overdueCount: overdueInvoices,
+        overdueCount,
       },
     })
   } catch (error) {
@@ -171,26 +150,18 @@ export async function GET(request: NextRequest) {
 }
 
 // POST /api/invoices - Create new invoice
+// OPTIMIZED: Removed redundant user query
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user?.email) {
+    // OPTIMIZED: Use organizationId from session directly
+    if (!session?.user?.organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user and organization
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      include: { organization: true },
-    })
-
-    if (!user || !user.organizationId) {
-      return NextResponse.json(
-        { error: 'User or organization not found' },
-        { status: 404 }
-      )
-    }
+    const organizationId = session.user.organizationId
+    const userId = session.user.id
 
     // Parse and validate request body
     const body = await request.json()
@@ -201,7 +172,6 @@ export async function POST(request: NextRequest) {
       contractId,
       issueDate,
       dueDate,
-      subtotal,
       taxAmount = 0,
       discount = 0,
       notes,
@@ -212,7 +182,7 @@ export async function POST(request: NextRequest) {
     const client = await prisma.client.findFirst({
       where: {
         id: clientId,
-        organizationId: user.organizationId,
+        organizationId,
       },
     })
 
@@ -228,7 +198,7 @@ export async function POST(request: NextRequest) {
       const contract = await prisma.contract.findFirst({
         where: {
           id: contractId,
-          organizationId: user.organizationId,
+          organizationId,
         },
       })
 
@@ -259,7 +229,7 @@ export async function POST(request: NextRequest) {
     const invoice = await prisma.invoice.create({
       data: {
         invoiceNumber,
-        organizationId: user.organizationId,
+        organizationId,
         clientId,
         contractId: contractId || null,
         issueDate: new Date(issueDate),
@@ -294,8 +264,8 @@ export async function POST(request: NextRequest) {
     // Log activity
     await prisma.activityLog.create({
       data: {
-        organizationId: user.organizationId,
-        userId: user.id,
+        organizationId,
+        userId,
         action: 'CREATE',
         resource: 'Invoice',
         resourceId: invoice.id,

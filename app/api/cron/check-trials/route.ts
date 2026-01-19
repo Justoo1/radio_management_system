@@ -2,6 +2,7 @@
  * Cron Job Endpoint - Check Trial Periods
  * Can be called by external services like vercel/cron or similar
  * Run this daily to check expired trials and update organization status
+ * OPTIMIZED: Uses batch updates instead of individual updates
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -25,57 +26,80 @@ export async function GET(req: NextRequest) {
 
     const now = new Date()
 
-    // Find all organizations with TRIAL status
-    const trialOrganizations = await prisma.organization.findMany({
+    // Find all trial organizations with expired trials
+    const expiredTrialOrgs = await prisma.organization.findMany({
       where: {
         status: 'TRIAL',
+        trialEndDate: {
+          lte: now,
+        },
       },
-      include: {
-        subscription: true,
+      select: {
+        id: true,
+        name: true,
+        trialEndDate: true,
+        subscriptionId: true,
       },
     })
 
-    let expiredCount = 0
-    const expiredOrganizations = []
+    if (expiredTrialOrgs.length === 0) {
+      return NextResponse.json({
+        success: true,
+        timestamp: now.toISOString(),
+        totalTrialOrganizations: 0,
+        expiredCount: 0,
+        expiredOrganizations: [],
+        message: 'No expired trials found.',
+      })
+    }
 
-    // Update each organization's status based on trial end date
-    for (const org of trialOrganizations) {
-      if (org.trialEndDate <= now) {
-        // Trial has expired, change status to EXPIRED
-        await prisma.organization.update({
-          where: { id: org.id },
-          data: {
-            status: 'EXPIRED',
-            isTrialUsed: true,
-          },
-        })
+    // Get organization IDs and subscription IDs
+    const expiredOrgIds = expiredTrialOrgs.map((org) => org.id)
+    const expiredSubIds = expiredTrialOrgs
+      .filter((org) => org.subscriptionId)
+      .map((org) => org.subscriptionId!)
 
-        // If subscription exists, mark it as expired
-        if (org.subscription) {
-          await prisma.subscription.update({
-            where: { id: org.subscription.id },
+    // OPTIMIZED: Batch update all expired organizations in a single query
+    const [orgUpdateResult, subUpdateResult] = await Promise.all([
+      // Batch update organizations
+      prisma.organization.updateMany({
+        where: {
+          id: { in: expiredOrgIds },
+        },
+        data: {
+          status: 'EXPIRED',
+          isTrialUsed: true,
+        },
+      }),
+
+      // Batch update subscriptions (if any)
+      expiredSubIds.length > 0
+        ? prisma.subscription.updateMany({
+            where: {
+              id: { in: expiredSubIds },
+            },
             data: {
               status: 'EXPIRED',
             },
           })
-        }
+        : Promise.resolve({ count: 0 }),
+    ])
 
-        expiredCount++
-        expiredOrganizations.push({
-          id: org.id,
-          name: org.name,
-          trialEndDate: org.trialEndDate,
-        })
-      }
-    }
+    // Format response
+    const expiredOrganizations = expiredTrialOrgs.map((org) => ({
+      id: org.id,
+      name: org.name,
+      trialEndDate: org.trialEndDate,
+    }))
 
     return NextResponse.json({
       success: true,
       timestamp: now.toISOString(),
-      totalTrialOrganizations: trialOrganizations.length,
-      expiredCount,
+      totalTrialOrganizations: expiredTrialOrgs.length,
+      expiredCount: orgUpdateResult.count,
+      subscriptionsExpired: subUpdateResult.count,
       expiredOrganizations,
-      message: `Checked ${trialOrganizations.length} trial organizations. ${expiredCount} trials expired.`,
+      message: `Updated ${orgUpdateResult.count} expired trial organizations and ${subUpdateResult.count} subscriptions.`,
     })
   } catch (error) {
     console.error('Error in check-trials cron:', error)
@@ -88,4 +112,9 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+// Also support POST for external cron services that prefer POST
+export async function POST(req: NextRequest) {
+  return GET(req)
 }

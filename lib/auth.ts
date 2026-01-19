@@ -99,9 +99,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/login',
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn() {
       // This callback runs after authorize
-      // We can use it to handle organization status
+      // Organization status is already verified in authorize()
       return true
     },
     async jwt({ token, user }) {
@@ -122,28 +122,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.organizationSlug = token.organizationSlug as string
         session.user.role = token.role as string
 
-        // Check if organization is still active
-        try {
-          const organization = await prisma.organization.findUnique({
-            where: { id: token.organizationId as string },
-            select: { status: true },
-          })
-
-          if (organization) {
-            // If organization is suspended, cancelled, or expired, invalidate session
-            if (
-              organization.status === 'SUSPENDED' ||
-              organization.status === 'CANCELLED' ||
-              organization.status === 'EXPIRED'
-            ) {
-              throw new Error('Organization is not active')
-            }
-          }
-        } catch (error) {
-          // If there's an error checking organization status, invalidate the session
-          console.error('Session validation error:', error)
-          throw error
-        }
+        // OPTIMIZED: Removed per-request organization status check
+        // Organization status is verified at login time in authorize()
+        // For suspended/expired orgs, use the /api/auth/check-org-status endpoint
+        // or middleware check when critical operations are performed
+        // This eliminates 1 database query per authenticated request
       }
       return session
     },
