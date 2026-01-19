@@ -69,9 +69,9 @@ export async function POST(request: NextRequest) {
     // Generate payment reference
     const paymentReference = generatePaymentReference(isUpgrade ? 'UPG' : 'DWG')
 
-    // Build callback URL
+    // Build callback URL - redirect to callback page that verifies payment
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
-    const callbackUrl = `${baseUrl}/settings/billing?upgrade=success`
+    const callbackUrl = `${baseUrl}/subscription/callback`
 
     // Initialize Paystack payment
     const paystack = getPaystackService()

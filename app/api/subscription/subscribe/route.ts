@@ -65,9 +65,9 @@ export async function POST(request: NextRequest) {
     // Generate payment reference
     const paymentReference = generatePaymentReference('SUB')
 
-    // Build callback URL
+    // Build callback URL - redirect to callback page that verifies payment
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000'
-    const callbackUrl = `${baseUrl}/dashboard?subscription=success`
+    const callbackUrl = `${baseUrl}/subscription/callback`
 
     // Initialize Paystack payment
     const paystack = getPaystackService()

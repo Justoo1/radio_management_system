@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { useSearchParams } from 'next/navigation'
 import {
   Users,
   Radio,
@@ -16,7 +17,9 @@ import {
   ArrowUpRight,
   Activity,
   Calendar,
-  Zap
+  Zap,
+  CheckCircle,
+  X
 } from 'lucide-react'
 import {
   fetchDashboardStats,
@@ -43,6 +46,9 @@ interface DashboardPageState {
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const searchParams = useSearchParams()
+  const upgradeSuccess = searchParams.get('upgrade') === 'success'
+  const [showUpgradeSuccess, setShowUpgradeSuccess] = useState(upgradeSuccess)
   const [state, setState] = useState<DashboardPageState>({
     stats: null,
     metrics: null,
@@ -59,12 +65,15 @@ export default function DashboardPage() {
       try {
         setState((prev) => ({ ...prev, loading: true, error: null }))
 
+        // Add cache-busting to force fresh data after upgrade
+        const cacheBuster = upgradeSuccess ? `?_=${Date.now()}` : ''
+
         // Fetch all data in parallel including organization status
         const [statsResult, metricsResult, activitiesResult, orgStatusResult] = await Promise.all([
           fetchDashboardStats(),
           fetchDashboardMetrics(),
           fetchDashboardActivity(3, 0),
-          fetch('/api/organization/status').then(res => res.json())
+          fetch(`/api/organization/status${cacheBuster}`).then(res => res.json())
         ])
 
         setState({
@@ -88,7 +97,7 @@ export default function DashboardPage() {
     }
 
     loadDashboardData()
-  }, [])
+  }, [upgradeSuccess])
 
   // Helper function to get activity color gradient
   const getActivityGradient = (color: string): string => {
@@ -130,8 +139,35 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Trial Countdown Banner */}
-        {state.trialEndDate && (
+        {/* Upgrade Success Banner */}
+        {showUpgradeSuccess && (
+          <div className="mb-6 relative bg-gradient-to-r from-emerald-500/20 to-green-500/20 backdrop-blur-xl rounded-2xl p-4 border border-emerald-400/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500/30 p-2 rounded-full">
+                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="text-emerald-300 font-semibold">Subscription upgraded successfully!</p>
+                  <p className="text-emerald-400/70 text-sm">Your new plan features are now active.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowUpgradeSuccess(false)
+                  // Remove query param from URL without reload
+                  window.history.replaceState({}, '', '/dashboard')
+                }}
+                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-emerald-400" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Trial Countdown Banner - only show if not just upgraded and still in trial */}
+        {state.trialEndDate && state.organizationStatus === 'TRIAL' && !showUpgradeSuccess && (
           <TrialBanner
             trialEndDate={state.trialEndDate}
             organizationStatus={state.organizationStatus}
