@@ -8,6 +8,36 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { smsCampaignSchema } from '@/lib/validations/sms'
+import { Feature, isFeatureEnabled, parseEnabledFeatures } from '@/lib/features'
+
+/**
+ * Check if SMS campaigns feature is enabled for organization
+ */
+async function checkSMSFeatureAccess(organizationId: string): Promise<{ hasAccess: boolean; organization: any }> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      id: true,
+      enabledFeatures: true,
+      maxSMSPerMonth: true,
+      status: true,
+    },
+  })
+
+  if (!organization) {
+    return { hasAccess: false, organization: null }
+  }
+
+  // Check if organization is active
+  if (organization.status === 'SUSPENDED' || organization.status === 'CANCELLED') {
+    return { hasAccess: false, organization }
+  }
+
+  const enabledFeatures = parseEnabledFeatures(organization.enabledFeatures)
+  const hasAccess = isFeatureEnabled(enabledFeatures, Feature.SMS_CAMPAIGNS)
+
+  return { hasAccess, organization }
+}
 
 /**
  * GET /api/sms/campaigns
@@ -21,6 +51,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      )
+    }
+
+    // Check feature access
+    const { hasAccess } = await checkSMSFeatureAccess(session.user.organizationId)
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'SMS Campaigns feature is not enabled for your organization. Please upgrade your plan.' },
+        { status: 403 }
       )
     }
 
@@ -97,17 +136,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const body = await req.json()
-    const validatedData = smsCampaignSchema.parse(body)
-
-    // Check feature limit
-    const campaignCount = await prisma.sMSCampaign.count({
-      where: { organizationId: session.user.organizationId },
-    })
-
-    const org = await prisma.organization.findUnique({
-      where: { id: session.user.organizationId },
-    })
+    // Check feature access
+    const { hasAccess, organization: org } = await checkSMSFeatureAccess(session.user.organizationId)
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'SMS Campaigns feature is not enabled for your organization. Please upgrade your plan.' },
+        { status: 403 }
+      )
+    }
 
     if (!org) {
       return NextResponse.json(
@@ -116,15 +152,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (campaignCount >= (org as any).maxSMSCampaigns) {
-      return NextResponse.json(
-        {
-          error: 'SMS campaign limit reached',
-          message: `Your plan allows a maximum of ${(org as any).maxSMSCampaigns} SMS campaigns`,
-        },
-        { status: 400 }
-      )
-    }
+    const body = await req.json()
+    const validatedData = smsCampaignSchema.parse(body)
 
     // If template is provided, verify it belongs to organization
     if (validatedData.templateId) {
