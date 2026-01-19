@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
 import { resend, DEFAULT_FROM_EMAIL } from '@/lib/resend'
+import { invalidateOrgCache } from '@/lib/cache'
 
 // Verify Paystack signature
 function verifyPaystackSignature(payload: string, signature: string): boolean {
@@ -97,7 +98,7 @@ async function handleChargeFailed(data: any) {
   }
 }
 
-async function handleSubscriptionPaymentSuccess(reference: string, data: any, metadata: any) {
+async function handleSubscriptionPaymentSuccess(reference: string, _data: any, _metadata: any) {
   try {
     // Find subscription payment
     const payment = await prisma.subscriptionPayment.findFirst({
@@ -133,12 +134,22 @@ async function handleSubscriptionPaymentSuccess(reference: string, data: any, me
 
     // Get the plan details
     const plan = payment.subscription.plan
-    const organization = payment.subscription.organization
+    let organization = payment.subscription.organization
+
+    // If organization not found via back-reference, try to find it directly
+    if (!organization) {
+      console.log('Organization not found via back-reference, searching directly...')
+      organization = await prisma.organization.findFirst({
+        where: { subscriptionId: payment.subscriptionId },
+      })
+    }
 
     if (!organization) {
       console.error('Organization not found for subscription:', payment.subscriptionId)
       return
     }
+
+    console.log('Processing subscription for organization:', organization.name, 'Plan:', plan.name)
 
     // Update subscription status
     await prisma.subscription.update({
@@ -151,24 +162,50 @@ async function handleSubscriptionPaymentSuccess(reference: string, data: any, me
     })
 
     // Determine enabled features based on plan
+    // NOTE: Feature names must match the Feature enum values in lib/features.ts (lowercase)
     let enabledFeatures: string[] = []
-    if (plan.name === 'Professional' || plan.name === 'Enterprise') {
+    if (plan.name === 'Enterprise') {
+      // Enterprise gets ALL features
       enabledFeatures = [
-        'SMS_CAMPAIGNS',
-        'ADVERTISEMENTS',
-        'MEDIA_LIBRARY',
-        'WHATSAPP',
-        'EXPENSES',
-        'ADVANCED_ANALYTICS',
-        'REVENUE_REPORTS',
-        'CONTRACT_ANALYSIS',
-        'INVOICE_AGING',
-        'CLIENT_ANALYTICS',
-        'PROGRAM_ANALYTICS',
-        'SMS_ANALYTICS',
+        'sms_campaigns',
+        'advertisements',
+        'media_library',
+        'whatsapp_integration',
+        'expenses',
+        'advanced_analytics',
+        'report_revenue',
+        'report_contracts',
+        'report_aging',
+        'report_client_analytics',
+        'report_program_analytics',
+        'report_sms_analytics',
+        'listener_tracking',
+        'streaming',
+        'airtime',
+      ]
+    } else if (plan.name === 'Professional') {
+      // Professional gets most features except some enterprise-only ones
+      enabledFeatures = [
+        'sms_campaigns',
+        'advertisements',
+        'media_library',
+        'whatsapp_integration',
+        'expenses',
+        'advanced_analytics',
+        'report_revenue',
+        'report_contracts',
+        'report_aging',
+        'report_client_analytics',
+        'report_program_analytics',
+        'report_sms_analytics',
+        'listener_tracking',
       ]
     } else if (plan.name === 'Starter') {
-      enabledFeatures = []
+      // Starter gets ONLY expenses as premium feature
+      // Core features (clients, programs, invoices, contracts, reports, on_air) are always enabled
+      enabledFeatures = [
+        'expenses',
+      ]
     }
 
     // Update organization with plan limits and activate
@@ -185,6 +222,10 @@ async function handleSubscriptionPaymentSuccess(reference: string, data: any, me
         isTrialUsed: true,
       },
     })
+
+    // Invalidate organization cache so fresh data is fetched
+    await invalidateOrgCache(organization.id)
+    console.log('Organization cache invalidated for:', organization.id)
 
     // Send confirmation email
     try {

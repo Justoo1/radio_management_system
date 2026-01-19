@@ -36,6 +36,8 @@ import {
 } from 'lucide-react'
 import PaymentAccountModal from '@/components/dashboard/PaymentAccountModal'
 import PaymentAccountBanner from '@/components/dashboard/PaymentAccountBanner'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface StreamingStatus {
   isOnline: boolean
@@ -86,6 +88,17 @@ interface AirtimeStats {
 }
 
 export default function StreamingDashboardPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.STREAMING}
+      featureDescription="Stream your radio station online with AzuraCast integration"
+    >
+      <StreamingDashboardContent />
+    </FeatureGuard>
+  )
+}
+
+function StreamingDashboardContent() {
   const [status, setStatus] = useState<StreamingStatus | null>(null)
   const [config, setConfig] = useState<StreamingConfig | null>(null)
   const [airtimeStats, setAirtimeStats] = useState<AirtimeStats | null>(null)

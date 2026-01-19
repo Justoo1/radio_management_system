@@ -1,16 +1,26 @@
 /**
  * Subscription Plans API
  * Get all active subscription plans
- * OPTIMIZED: Added Redis caching (1 hour TTL - plans rarely change)
+ * OPTIMIZED: Added Redis caching with fallback to direct database query
  */
 
 import { NextResponse } from 'next/server'
 import { getCachedSubscriptionPlans } from '@/lib/cache'
+import prisma from '@/lib/prisma'
 
 export async function GET() {
   try {
-    // Use cached subscription plans (1 hour TTL)
-    const plans = await getCachedSubscriptionPlans()
+    // Try cached subscription plans first (1 hour TTL)
+    let plans = await getCachedSubscriptionPlans()
+
+    // Fallback to direct database query if cache returns empty or fails
+    if (!plans || plans.length === 0) {
+      console.log('Cache miss or empty - fetching plans directly from database')
+      plans = await prisma.subscriptionPlan.findMany({
+        where: { isActive: true },
+        orderBy: { price: 'asc' },
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -18,10 +28,24 @@ export async function GET() {
     })
   } catch (error) {
     console.error('Error fetching subscription plans:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch subscription plans' },
-      { status: 500 }
-    )
+
+    // Last resort: try direct database fetch
+    try {
+      const plans = await prisma.subscriptionPlan.findMany({
+        where: { isActive: true },
+        orderBy: { price: 'asc' },
+      })
+      return NextResponse.json({
+        success: true,
+        data: plans,
+      })
+    } catch (dbError) {
+      console.error('Database fallback also failed:', dbError)
+      return NextResponse.json(
+        { error: 'Failed to fetch subscription plans' },
+        { status: 500 }
+      )
+    }
   }
 }
 

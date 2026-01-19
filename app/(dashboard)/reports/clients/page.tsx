@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, TrendingUp, Users, DollarSign, BarChart3, PieChart, Calendar } from 'lucide-react'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface ClientMetrics {
   totalClients: number
@@ -48,6 +50,17 @@ interface AnalyticsData {
 }
 
 export default function ClientsReportPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_CLIENT_ANALYTICS}
+      featureDescription="Access detailed client behavior and metrics"
+    >
+      <ClientsReportContent />
+    </FeatureGuard>
+  )
+}
+
+function ClientsReportContent() {
   const [dateRange, setDateRange] = useState('30days')
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)

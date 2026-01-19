@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { ArrowLeft, Download, AlertCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface AgingBucket {
   label: string
@@ -39,6 +41,17 @@ interface AgingReport {
 }
 
 export default function InvoiceAgingPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_AGING}
+      featureDescription="Access invoice aging and receivables tracking"
+    >
+      <InvoiceAgingContent />
+    </FeatureGuard>
+  )
+}
+
+function InvoiceAgingContent() {
   const [report, setReport] = useState<AgingReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0])

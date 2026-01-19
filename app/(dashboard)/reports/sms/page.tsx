@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, MessageSquare, Send, CheckCircle, BarChart3, PieChart } from 'lucide-react'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface SMSMetrics {
   totalCampaigns: number
@@ -50,6 +52,17 @@ interface AnalyticsData {
 }
 
 export default function SMSReportPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_SMS_ANALYTICS}
+      featureDescription="Access SMS campaign analytics and metrics"
+    >
+      <SMSReportContent />
+    </FeatureGuard>
+  )
+}
+
+function SMSReportContent() {
   const [dateRange, setDateRange] = useState('30days')
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)

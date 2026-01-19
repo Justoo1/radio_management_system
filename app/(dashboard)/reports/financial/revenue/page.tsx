@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface RevenueReport {
   period: { startDate: string; endDate: string }
@@ -57,6 +59,17 @@ const CustomTooltip = ({ active, payload }: any) => {
 }
 
 export default function RevenueReportPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_REVENUE}
+      featureDescription="Access detailed revenue analytics and reporting"
+    >
+      <RevenueReportContent />
+    </FeatureGuard>
+  )
+}
+
+function RevenueReportContent() {
   const [report, setReport] = useState<RevenueReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [groupBy, setGroupBy] = useState('client')

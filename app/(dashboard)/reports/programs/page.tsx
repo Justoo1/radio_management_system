@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, TrendingUp, Radio, Users, Star, BarChart3, LineChart } from 'lucide-react'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface ProgramMetrics {
   totalPrograms: number
@@ -48,6 +50,17 @@ interface AnalyticsData {
 }
 
 export default function ProgramsReportPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_PROGRAM_ANALYTICS}
+      featureDescription="Access program performance analytics"
+    >
+      <ProgramsReportContent />
+    </FeatureGuard>
+  )
+}
+
+function ProgramsReportContent() {
   const [dateRange, setDateRange] = useState('30days')
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)

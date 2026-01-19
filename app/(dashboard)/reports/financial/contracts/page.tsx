@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 import { ArrowLeft, Download } from 'lucide-react'
 import Link from 'next/link'
+import { FeatureGuard } from '@/components/feature-guard'
+import { Feature } from '@/lib/features'
 
 interface ContractAnalysis {
   period: { startDate: string; endDate: string }
@@ -73,6 +75,17 @@ const CustomContractTooltip = ({ active, payload }: any) => {
 }
 
 export default function ContractAnalysisPage() {
+  return (
+    <FeatureGuard
+      feature={Feature.REPORT_CONTRACTS}
+      featureDescription="Access contract performance and analysis"
+    >
+      <ContractAnalysisContent />
+    </FeatureGuard>
+  )
+}
+
+function ContractAnalysisContent() {
   const [report, setReport] = useState<ContractAnalysis | null>(null)
   const [loading, setLoading] = useState(true)
 
