@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { createAzuraCastService } from "@/lib/services/azuracast.service";
+import { Feature, checkFeatureAccess } from "@/lib/features";
 
 // GET /api/streaming/queue - Get current queue
 export async function GET() {
@@ -13,6 +14,15 @@ export async function GET() {
     }
 
     const organizationId = session.user.organizationId;
+
+    // Check streaming feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.STREAMING);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Streaming feature is not enabled for your organization. Please upgrade your plan." },
+        { status: 403 }
+      );
+    }
 
     // Get streaming config
     const streamingConfig = await prisma.streamingConfig.findUnique({

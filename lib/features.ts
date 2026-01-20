@@ -271,3 +271,36 @@ export function parseEnabledFeatures(enabledFeaturesJson: string): string[] {
 export function getFeatureByRoute(route: string): FeatureDefinition | undefined {
   return Object.values(FEATURES).find(f => route.startsWith(f.route))
 }
+
+/**
+ * Check feature access for API routes
+ * Returns { hasAccess: boolean, organization: any }
+ */
+export async function checkFeatureAccess(
+  prisma: any,
+  organizationId: string,
+  feature: Feature
+): Promise<{ hasAccess: boolean; organization: any }> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      id: true,
+      enabledFeatures: true,
+      status: true,
+    },
+  })
+
+  if (!organization) {
+    return { hasAccess: false, organization: null }
+  }
+
+  // Check if organization is suspended or cancelled
+  if (organization.status === 'SUSPENDED' || organization.status === 'CANCELLED') {
+    return { hasAccess: false, organization }
+  }
+
+  const enabledFeatures = parseEnabledFeatures(organization.enabledFeatures)
+  const hasAccess = isFeatureEnabled(enabledFeatures, feature)
+
+  return { hasAccess, organization }
+}

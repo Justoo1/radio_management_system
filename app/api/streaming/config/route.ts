@@ -7,6 +7,7 @@ import {
   streamingConfigCreateSchema,
   streamingConfigUpdateSchema,
 } from "@/lib/validations/streaming.validation";
+import { Feature, checkFeatureAccess } from "@/lib/features";
 
 // GET /api/streaming/config - Get organization's streaming configuration
 export async function GET() {
@@ -17,6 +18,15 @@ export async function GET() {
     }
 
     const organizationId = session.user.organizationId;
+
+    // Check streaming feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.STREAMING);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Streaming feature is not enabled for your organization. Please upgrade your plan." },
+        { status: 403 }
+      );
+    }
 
     // Check if streaming is enabled for this organization's plan
     const organization = await prisma.organization.findUnique({

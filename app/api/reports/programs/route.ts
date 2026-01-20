@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 import { auth } from '@/lib/auth'
+import { Feature, checkFeatureAccess } from '@/lib/features'
 
 export async function GET() {
   try {
@@ -26,6 +27,15 @@ export async function GET() {
     }
 
     const organizationId = user.organizationId
+
+    // Check program analytics report feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.REPORT_PROGRAM_ANALYTICS)
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Program analytics report is not enabled for your organization. Please upgrade your plan.' },
+        { status: 403 }
+      )
+    }
 
     // Get program data with REAL engagement metrics
     const programs = await prisma.program.findMany({

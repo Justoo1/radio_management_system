@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { Feature, checkFeatureAccess } from '@/lib/features';
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,6 +17,15 @@ export async function GET(req: NextRequest) {
     }
 
     const organizationId = session.user.organizationId;
+
+    // Check listener tracking feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.LISTENER_TRACKING);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Listener tracking feature is not enabled for your organization. Please upgrade your plan.' },
+        { status: 403 }
+      );
+    }
 
     // Get URL params
     const { searchParams } = new URL(req.url);

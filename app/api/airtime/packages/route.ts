@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/lib/permissions";
 import { airtimePackageCreateSchema } from "@/lib/validations/airtime.validation";
 import { ZodError } from "zod";
+import { Feature, checkFeatureAccess } from "@/lib/features";
 
 // GET /api/airtime/packages - List packages
 export async function GET() {
@@ -19,6 +20,15 @@ export async function GET() {
     }
 
     const organizationId = session.user.organizationId;
+
+    // Check airtime feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.AIRTIME);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Airtime booking feature is not enabled for your organization. Please upgrade your plan." },
+        { status: 403 }
+      );
+    }
 
     const packages = await prisma.airtimePackage.findMany({
       where: { organizationId },

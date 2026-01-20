@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { airtimeBookingsQuerySchema } from "@/lib/validations/airtime.validation";
 import { Prisma } from "@prisma/client";
+import { Feature, checkFeatureAccess } from "@/lib/features";
 
 // GET /api/airtime/bookings - List bookings with filters
 export async function GET(request: NextRequest) {
@@ -18,6 +19,15 @@ export async function GET(request: NextRequest) {
     }
 
     const organizationId = session.user.organizationId;
+
+    // Check airtime feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, organizationId, Feature.AIRTIME);
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Airtime booking feature is not enabled for your organization. Please upgrade your plan." },
+        { status: 403 }
+      );
+    }
 
     // Parse query params
     const { searchParams } = new URL(request.url);

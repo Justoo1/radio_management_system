@@ -7,6 +7,7 @@
 import { auth } from '@/lib/auth'
 import prisma from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { Feature, checkFeatureAccess } from '@/lib/features'
 
 export async function GET(request: Request) {
   try {
@@ -22,6 +23,15 @@ export async function GET(request: Request) {
 
     if (!user?.organizationId) {
       return NextResponse.json({ error: 'No organization found' }, { status: 400 })
+    }
+
+    // Check aging report feature access
+    const { hasAccess } = await checkFeatureAccess(prisma, user.organizationId, Feature.REPORT_AGING)
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Invoice aging report is not enabled for your organization. Please upgrade your plan.' },
+        { status: 403 }
+      )
     }
 
     const { searchParams } = new URL(request.url)
