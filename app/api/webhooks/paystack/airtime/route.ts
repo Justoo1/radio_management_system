@@ -98,31 +98,48 @@ async function handleChargeSuccess(data: {
   metadata: Record<string, unknown>
   customer: { email: string }
 }) {
-  const { reference, amount, channel, paid_at } = data
+  const { reference, channel, paid_at } = data
 
-  // Find booking by payment reference
-  const booking = await prisma.airtimeBooking.findFirst({
-    where: { paymentReference: reference },
+  // SECURITY: Extract and validate organizationId from metadata
+  const organizationId = data.metadata?.organization_id as string | undefined
+  const bookingRef = data.metadata?.booking_ref as string | undefined
+
+  // Find booking by payment reference with organization verification
+  let booking = await prisma.airtimeBooking.findFirst({
+    where: {
+      paymentReference: reference,
+      // SECURITY: Only match if organizationId from metadata matches
+      ...(organizationId && { organizationId }),
+    },
+    include: { organization: { select: { id: true, name: true } } },
   })
+
+  if (!booking && bookingRef) {
+    // Fallback to bookingRef lookup with organization verification
+    booking = await prisma.airtimeBooking.findFirst({
+      where: {
+        bookingRef,
+        // SECURITY: Require organizationId match if provided in metadata
+        ...(organizationId && { organizationId }),
+      },
+      include: { organization: { select: { id: true, name: true } } },
+    })
+  }
 
   if (!booking) {
     console.log(`No booking found for payment reference: ${reference}`)
-    // Check metadata for booking info
-    const bookingRef = data.metadata?.booking_ref as string
-    if (bookingRef) {
-      const bookingByRef = await prisma.airtimeBooking.findUnique({
-        where: { bookingRef },
-      })
+    return
+  }
 
-      if (bookingByRef) {
-        await updateBookingPayment(bookingByRef.id, {
-          paymentReference: reference,
-          channel,
-          paidAt: paid_at,
-        })
-        return
-      }
-    }
+  // SECURITY: Verify organization match if metadata contains organizationId
+  if (organizationId && booking.organizationId !== organizationId) {
+    console.error(`Organization mismatch for booking ${booking.id}: expected ${organizationId}, got ${booking.organizationId}`)
+    return
+  }
+
+  // Verify booking is in a state that can accept payment
+  if (booking.paymentStatus === 'COMPLETED') {
+    console.log(`Booking ${booking.id} already paid - skipping duplicate webhook`)
     return
   }
 
@@ -131,6 +148,8 @@ async function handleChargeSuccess(data: {
     channel,
     paidAt: paid_at,
   })
+
+  console.log(`Payment confirmed for booking ${booking.id} (org: ${booking.organization?.name})`)
 }
 
 /**

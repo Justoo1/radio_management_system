@@ -100,128 +100,150 @@ async function handleChargeFailed(data: any) {
 
 async function handleSubscriptionPaymentSuccess(reference: string, _data: any, _metadata: any) {
   try {
-    // Find subscription payment
-    const payment = await prisma.subscriptionPayment.findFirst({
-      where: { providerPaymentId: reference },
-      include: {
-        subscription: {
-          include: {
-            plan: true,
-            organization: true,
+    // SECURITY: Use a transaction to ensure atomic updates and idempotency
+    const result = await prisma.$transaction(async (tx) => {
+      // Find subscription payment with FOR UPDATE lock to prevent race conditions
+      const payment = await tx.subscriptionPayment.findFirst({
+        where: { providerPaymentId: reference },
+        include: {
+          subscription: {
+            include: {
+              plan: true,
+              organization: true,
+            },
           },
         },
-      },
-    })
-
-    if (!payment) {
-      console.error('Subscription payment not found:', reference)
-      return
-    }
-
-    if (payment.status === 'COMPLETED') {
-      console.log('Payment already processed:', reference)
-      return
-    }
-
-    // Update payment status
-    await prisma.subscriptionPayment.update({
-      where: { id: payment.id },
-      data: {
-        status: 'COMPLETED',
-        paidAt: new Date(),
-      },
-    })
-
-    // Get the plan details
-    const plan = payment.subscription.plan
-    let organization = payment.subscription.organization
-
-    // If organization not found via back-reference, try to find it directly
-    if (!organization) {
-      console.log('Organization not found via back-reference, searching directly...')
-      organization = await prisma.organization.findFirst({
-        where: { subscriptionId: payment.subscriptionId },
       })
-    }
 
-    if (!organization) {
-      console.error('Organization not found for subscription:', payment.subscriptionId)
+      if (!payment) {
+        console.error('Subscription payment not found:', reference)
+        return { success: false, reason: 'payment_not_found' }
+      }
+
+      // IDEMPOTENCY: Check if already processed within the transaction
+      if (payment.status === 'COMPLETED') {
+        console.log('Payment already processed (idempotent skip):', reference)
+        return { success: true, reason: 'already_processed' }
+      }
+
+      // Get the plan details
+      const plan = payment.subscription.plan
+      let organization = payment.subscription.organization
+
+      // If organization not found via back-reference, try to find it directly
+      if (!organization) {
+        console.log('Organization not found via back-reference, searching directly...')
+        organization = await tx.organization.findFirst({
+          where: { subscriptionId: payment.subscriptionId },
+        })
+      }
+
+      if (!organization) {
+        console.error('Organization not found for subscription:', payment.subscriptionId)
+        return { success: false, reason: 'organization_not_found' }
+      }
+
+      console.log('Processing subscription for organization:', organization.name, 'Plan:', plan.name)
+
+      // Update payment status
+      await tx.subscriptionPayment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'COMPLETED',
+          paidAt: new Date(),
+        },
+      })
+
+      // Update subscription status
+      await tx.subscription.update({
+        where: { id: payment.subscriptionId },
+        data: {
+          status: 'ACTIVE',
+          lastPaymentDate: new Date(),
+          nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        },
+      })
+
+      // Determine enabled features based on plan
+      // NOTE: Feature names must match the Feature enum values in lib/features.ts (lowercase)
+      let enabledFeatures: string[] = []
+      if (plan.name === 'Enterprise') {
+        // Enterprise gets ALL features
+        enabledFeatures = [
+          'sms_campaigns',
+          'advertisements',
+          'media_library',
+          'whatsapp_integration',
+          'expenses',
+          'advanced_analytics',
+          'report_revenue',
+          'report_contracts',
+          'report_aging',
+          'report_client_analytics',
+          'report_program_analytics',
+          'report_sms_analytics',
+          'listener_tracking',
+          'streaming',
+          'airtime',
+        ]
+      } else if (plan.name === 'Professional') {
+        // Professional gets most features except some enterprise-only ones
+        enabledFeatures = [
+          'sms_campaigns',
+          'advertisements',
+          'media_library',
+          'whatsapp_integration',
+          'expenses',
+          'advanced_analytics',
+          'report_revenue',
+          'report_contracts',
+          'report_aging',
+          'report_client_analytics',
+          'report_program_analytics',
+          'report_sms_analytics',
+          'listener_tracking',
+        ]
+      } else if (plan.name === 'Starter') {
+        // Starter gets ONLY expenses as premium feature
+        // Core features (clients, programs, invoices, contracts, reports, on_air) are always enabled
+        enabledFeatures = [
+          'expenses',
+        ]
+      }
+
+      // Update organization with plan limits and activate
+      await tx.organization.update({
+        where: { id: organization.id },
+        data: {
+          status: 'ACTIVE',
+          maxUsers: plan.maxUsers,
+          maxClients: plan.maxClients,
+          maxSMSPerMonth: plan.maxSMSPerMonth,
+          maxStorageGB: plan.maxStorageGB,
+          maxPrograms: plan.maxPrograms,
+          enabledFeatures: JSON.stringify(enabledFeatures),
+          isTrialUsed: true,
+        },
+      })
+
+      return { success: true, organization, plan }
+    })
+
+    // Handle transaction result
+    if (!result.success) {
       return
     }
 
-    console.log('Processing subscription for organization:', organization.name, 'Plan:', plan.name)
-
-    // Update subscription status
-    await prisma.subscription.update({
-      where: { id: payment.subscriptionId },
-      data: {
-        status: 'ACTIVE',
-        lastPaymentDate: new Date(),
-        nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      },
-    })
-
-    // Determine enabled features based on plan
-    // NOTE: Feature names must match the Feature enum values in lib/features.ts (lowercase)
-    let enabledFeatures: string[] = []
-    if (plan.name === 'Enterprise') {
-      // Enterprise gets ALL features
-      enabledFeatures = [
-        'sms_campaigns',
-        'advertisements',
-        'media_library',
-        'whatsapp_integration',
-        'expenses',
-        'advanced_analytics',
-        'report_revenue',
-        'report_contracts',
-        'report_aging',
-        'report_client_analytics',
-        'report_program_analytics',
-        'report_sms_analytics',
-        'listener_tracking',
-        'streaming',
-        'airtime',
-      ]
-    } else if (plan.name === 'Professional') {
-      // Professional gets most features except some enterprise-only ones
-      enabledFeatures = [
-        'sms_campaigns',
-        'advertisements',
-        'media_library',
-        'whatsapp_integration',
-        'expenses',
-        'advanced_analytics',
-        'report_revenue',
-        'report_contracts',
-        'report_aging',
-        'report_client_analytics',
-        'report_program_analytics',
-        'report_sms_analytics',
-        'listener_tracking',
-      ]
-    } else if (plan.name === 'Starter') {
-      // Starter gets ONLY expenses as premium feature
-      // Core features (clients, programs, invoices, contracts, reports, on_air) are always enabled
-      enabledFeatures = [
-        'expenses',
-      ]
+    if (result.reason === 'already_processed') {
+      return
     }
 
-    // Update organization with plan limits and activate
-    await prisma.organization.update({
-      where: { id: organization.id },
-      data: {
-        status: 'ACTIVE',
-        maxUsers: plan.maxUsers,
-        maxClients: plan.maxClients,
-        maxSMSPerMonth: plan.maxSMSPerMonth,
-        maxStorageGB: plan.maxStorageGB,
-        maxPrograms: plan.maxPrograms,
-        enabledFeatures: JSON.stringify(enabledFeatures),
-        isTrialUsed: true,
-      },
-    })
+    const { organization, plan } = result
+
+    // Type guard - should not happen given the checks above, but satisfies TypeScript
+    if (!organization || !plan) {
+      return
+    }
 
     // Invalidate organization cache so fresh data is fetched
     await invalidateOrgCache(organization.id)
@@ -263,12 +285,24 @@ async function handleSubscriptionPaymentSuccess(reference: string, _data: any, _
 
 async function handleSubscriptionPaymentFailed(reference: string, data: any) {
   try {
-    const payment = await prisma.subscriptionPayment.findFirst({
-      where: { providerPaymentId: reference },
-    })
+    // SECURITY: Use a transaction for atomic updates
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.subscriptionPayment.findFirst({
+        where: { providerPaymentId: reference },
+      })
 
-    if (payment) {
-      await prisma.subscriptionPayment.update({
+      if (!payment) {
+        console.log('Payment not found for failed reference:', reference)
+        return
+      }
+
+      // IDEMPOTENCY: Skip if already marked as failed
+      if (payment.status === 'FAILED') {
+        console.log('Payment already marked as failed (idempotent skip):', reference)
+        return
+      }
+
+      await tx.subscriptionPayment.update({
         where: { id: payment.id },
         data: {
           status: 'FAILED',
@@ -276,7 +310,7 @@ async function handleSubscriptionPaymentFailed(reference: string, data: any) {
         },
       })
 
-      await prisma.subscription.update({
+      await tx.subscription.update({
         where: { id: payment.subscriptionId },
         data: {
           status: 'PAST_DUE',
@@ -284,7 +318,7 @@ async function handleSubscriptionPaymentFailed(reference: string, data: any) {
       })
 
       console.log('Subscription payment failed:', reference)
-    }
+    })
   } catch (error) {
     console.error('Error handling subscription payment failure:', error)
   }

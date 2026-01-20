@@ -1,5 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+
+/**
+ * Verify Arkesel webhook signature
+ * Arkesel uses HMAC SHA-256 for webhook signature verification
+ */
+function verifyArkeselSignature(payload: string, signature: string | null): boolean {
+  const secret = process.env.ARKESEL_WEBHOOK_SECRET;
+
+  // If no secret configured, log warning but allow in development
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('ARKESEL_WEBHOOK_SECRET not configured - rejecting webhook');
+      return false;
+    }
+    console.warn('ARKESEL_WEBHOOK_SECRET not configured - allowing in development');
+    return true;
+  }
+
+  if (!signature) {
+    console.error('Missing Arkesel webhook signature');
+    return false;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expectedSignature)
+  );
+}
 
 /**
  * POST /api/webhooks/arkesel
@@ -17,7 +51,19 @@ import { prisma } from "@/lib/prisma";
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get raw body for signature verification
+    const payload = await request.text();
+    const signature = request.headers.get('x-arkesel-signature');
+
+    // SECURITY: Verify webhook signature
+    if (!verifyArkeselSignature(payload, signature)) {
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      );
+    }
+
+    const body = JSON.parse(payload);
 
     console.log("Arkesel webhook received:", JSON.stringify(body));
 
@@ -78,21 +124,35 @@ async function processDeliveryReport(report: any) {
 
   const mappedStatus = statusMap[status?.toUpperCase()] || "FAILED";
 
-  // Find the message by gateway message ID or recipient
+  // Find the message by gateway message ID - SECURITY: Include campaign for org verification
   let message;
 
   if (message_id) {
     message = await prisma.sMSMessage.findFirst({
       where: { gatewayMessageId: message_id },
+      include: {
+        campaign: {
+          select: { organizationId: true },
+        },
+      },
     });
   }
 
-  // If not found by ID, try by recipient (less reliable)
-  if (!message && recipient) {
+  // SECURITY: Only fall back to recipient lookup if we have a valid message_id match
+  // This prevents cross-organization message status updates
+  if (!message && recipient && message_id) {
+    // Only use recipient as secondary lookup when we have a message_id to correlate
     message = await prisma.sMSMessage.findFirst({
       where: {
         recipient: recipient,
         status: "SENT",
+        // SECURITY: Require gatewayMessageId to be null (not yet assigned)
+        gatewayMessageId: null,
+      },
+      include: {
+        campaign: {
+          select: { organizationId: true },
+        },
       },
       orderBy: { sentAt: "desc" },
     });
@@ -102,6 +162,13 @@ async function processDeliveryReport(report: any) {
     console.warn(
       `No message found for delivery report: message_id=${message_id}, recipient=${recipient}`
     );
+    return;
+  }
+
+  // SECURITY: Log organization context for audit trail
+  const organizationId = message.campaign?.organizationId;
+  if (!organizationId) {
+    console.warn(`Message ${message.id} has no associated organization - skipping update`);
     return;
   }
 

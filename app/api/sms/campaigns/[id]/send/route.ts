@@ -135,6 +135,7 @@ export async function POST(
 
 /**
  * Get recipients for a campaign based on recipient type
+ * COMPLIANCE: Respects SMS opt-out preferences - only contacts who are ACTIVE and have NOT opted out
  */
 async function getRecipients(
   organizationId: string,
@@ -142,14 +143,18 @@ async function getRecipients(
 ): Promise<{ phoneNumber: string; name: string | null }[]> {
   const recipients: { phoneNumber: string; name: string | null }[] = [];
 
+  // COMPLIANCE: Common filter to exclude opted-out contacts
+  const activeNotOptedOutFilter = {
+    organizationId,
+    status: "ACTIVE" as const,
+    optedOutAt: null, // Must not have opted out
+  };
+
   switch (campaign.recipientType) {
     case "ALL": {
-      // Get all active SMS contacts
+      // Get all active SMS contacts who haven't opted out
       const contacts = await prisma.sMSContact.findMany({
-        where: {
-          organizationId,
-          status: "ACTIVE",
-        },
+        where: activeNotOptedOutFilter,
         select: { phoneNumber: true, name: true },
       });
       recipients.push(...contacts);
@@ -157,13 +162,12 @@ async function getRecipients(
     }
 
     case "CATEGORY": {
-      // Get contacts by category
+      // Get contacts by category (excluding opted-out)
       if (campaign.recipientFilter) {
         const filter = JSON.parse(campaign.recipientFilter);
         const contacts = await prisma.sMSContact.findMany({
           where: {
-            organizationId,
-            status: "ACTIVE",
+            ...activeNotOptedOutFilter,
             category: filter.category,
           },
           select: { phoneNumber: true, name: true },
@@ -175,6 +179,7 @@ async function getRecipients(
 
     case "CUSTOM": {
       // Custom phone numbers from filter
+      // COMPLIANCE: Check each number against opt-out list
       if (campaign.recipientFilter) {
         const filter = JSON.parse(campaign.recipientFilter);
         const phoneNumbers = filter.phoneNumbers || [];
@@ -182,7 +187,7 @@ async function getRecipients(
         for (const phone of phoneNumbers) {
           const validated = validatePhoneNumber(phone);
           if (validated) {
-            // Check if in contacts for name lookup
+            // Check if in contacts and verify not opted out
             const contact = await prisma.sMSContact.findUnique({
               where: {
                 organizationId_phoneNumber: {
@@ -190,8 +195,14 @@ async function getRecipients(
                   phoneNumber: validated,
                 },
               },
-              select: { name: true },
+              select: { name: true, status: true, optedOutAt: true },
             });
+
+            // COMPLIANCE: Skip contacts who have opted out
+            if (contact && (contact.status !== "ACTIVE" || contact.optedOutAt !== null)) {
+              console.log(`Skipping opted-out contact: ${validated}`);
+              continue;
+            }
 
             recipients.push({
               phoneNumber: validated,
@@ -205,7 +216,7 @@ async function getRecipients(
 
     case "IMPORTED": {
       // This type uses contacts imported specifically for the campaign
-      // For now, treat as CUSTOM with phone numbers
+      // COMPLIANCE: Check each number against opt-out list
       if (campaign.recipientFilter) {
         const filter = JSON.parse(campaign.recipientFilter);
         const phoneNumbers = filter.phoneNumbers || [];
@@ -213,6 +224,23 @@ async function getRecipients(
         for (const phone of phoneNumbers) {
           const validated = validatePhoneNumber(phone);
           if (validated) {
+            // COMPLIANCE: Check if this number has opted out
+            const existingContact = await prisma.sMSContact.findUnique({
+              where: {
+                organizationId_phoneNumber: {
+                  organizationId,
+                  phoneNumber: validated,
+                },
+              },
+              select: { status: true, optedOutAt: true },
+            });
+
+            // Skip if the contact exists and has opted out
+            if (existingContact && (existingContact.status !== "ACTIVE" || existingContact.optedOutAt !== null)) {
+              console.log(`Skipping opted-out imported contact: ${validated}`);
+              continue;
+            }
+
             recipients.push({
               phoneNumber: validated,
               name: null,

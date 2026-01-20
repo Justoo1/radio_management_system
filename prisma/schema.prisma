@@ -358,6 +358,7 @@ enum PaymentMethodType {
 enum PaymentProvider {
   HUBTEL
   STRIPE
+  PAYSTACK
 }
 
 enum MobileMoneyNetwork {

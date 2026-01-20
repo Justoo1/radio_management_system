@@ -9,19 +9,16 @@ import {
 } from '@/lib/services/onair';
 import { triggerOnAirEvent, PUSHER_EVENTS } from '@/lib/pusher/server';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    // Get organization ID from headers first (faster, no auth call)
-    let organizationId: string | null = req.headers.get('x-organization-id');
+    // SECURITY: Always use session-based authentication - never trust client headers
+    const session = await auth();
 
-    if (!organizationId) {
-      // Fall back to auth if no header
-      const session = await auth();
-      if (!session?.user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      organizationId = (session.user as any).organizationId;
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const organizationId = (session.user as any).organizationId;
 
     if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

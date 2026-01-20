@@ -140,7 +140,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Create subscription payment record
-    // Note: Using OTHER/STRIPE as placeholders until PAYSTACK is added to PaymentProvider enum
     await prisma.subscriptionPayment.create({
       data: {
         subscriptionId: subscription.id,
@@ -148,14 +147,14 @@ export async function POST(request: NextRequest) {
         currency: plan.currency,
         status: 'PENDING',
         paymentMethod: 'OTHER', // Will be updated to actual method (CARD/MOBILE_MONEY) via webhook
-        provider: 'STRIPE', // Using STRIPE as placeholder for PAYSTACK
+        provider: 'PAYSTACK',
         providerPaymentId: paymentReference,
-        description: `Subscription payment for ${plan.name} plan (Paystack)`,
+        description: `Subscription payment for ${plan.name} plan`,
         metadata: JSON.stringify({
           plan_id: plan.id,
           plan_name: plan.name,
           organization_id: organization.id,
-          payment_provider: 'PAYSTACK', // Actual provider stored in metadata
+          payment_type: 'subscription',
         }),
       },
     })

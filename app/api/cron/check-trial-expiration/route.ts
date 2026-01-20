@@ -12,9 +12,15 @@ import { TrialExpiredEmail } from '@/emails/trial-expired'
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
+    // SECURITY: Verify cron secret with proper null check
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret) {
+      console.error('CRON_SECRET environment variable is not configured')
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
     const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

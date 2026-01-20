@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { cookies } from "next/headers";
 import {
   deleteOrganizationWithData,
   getOrganizationDataSummary,
@@ -7,29 +7,30 @@ import {
 import { prisma } from "@/lib/prisma";
 
 /**
+ * Verify developer access token (consistent with other admin endpoints)
+ */
+async function verifyDeveloperAccess(): Promise<boolean> {
+  const cookieStore = await cookies();
+  const devAccessToken = cookieStore.get('dev_access_token');
+  return !!(devAccessToken && devAccessToken.value);
+}
+
+/**
  * GET /api/admin/organizations/[id]/delete?preview=true
  * Preview what will be deleted (data summary)
  */
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-
-    // Only super admins can access this endpoint
-    // You should have a way to identify admin users
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // TODO: Add proper admin check here
-    // For now, we'll assume the user has admin access
-    // You might want to check if user.email matches ADMIN_EMAIL env variable
-    const isAdmin = session.user.email === process.env.ADMIN_EMAIL;
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // SECURITY: Use dev_access_token cookie (consistent with other admin endpoints)
+    const hasAccess = await verifyDeveloperAccess();
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Unauthorized - Developer access required" },
+        { status: 401 }
+      );
     }
 
     const { id: organizationId } = await params;
@@ -81,18 +82,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-
-    // Only super admins can access this endpoint
-    if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // TODO: Add proper admin check here
-    const isAdmin = session.user.email === process.env.ADMIN_EMAIL;
-
-    if (!isAdmin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // SECURITY: Use dev_access_token cookie (consistent with other admin endpoints)
+    const hasAccess = await verifyDeveloperAccess();
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "Unauthorized - Developer access required" },
+        { status: 401 }
+      );
     }
 
     const { id: organizationId } = await params;

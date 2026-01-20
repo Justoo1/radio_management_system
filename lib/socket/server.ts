@@ -3,6 +3,7 @@ import { Server as HTTPServer } from 'http';
 import { getRedis, REDIS_CHANNELS } from '@/lib/redis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
+import { prisma } from '@/lib/prisma';
 
 export interface SocketServer extends SocketIOServer {
   isInitialized?: boolean;
